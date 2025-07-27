@@ -9,10 +9,10 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout origin
         uses: actions/checkout@v4
 
-      - name: Checkout
+      - name: Checkout writeup
         uses: actions/checkout@v4
         with:
           repository: 4n86rakam1/writeup
