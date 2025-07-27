@@ -12,6 +12,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: 4n86rakam1/writeup
+          path: docs/writeup
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
