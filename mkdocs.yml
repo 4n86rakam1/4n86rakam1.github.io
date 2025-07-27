@@ -24,7 +24,7 @@ theme:
     - navigation.tracking
     - navigation.tabs
     - navigation.prune
-    - navigation.indexes
+    - navigation.sections
 
 markdown_extensions:
   - pymdownx.highlight:
@@ -34,3 +34,12 @@ markdown_extensions:
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - pymdownx.superfences
+  - footnotes
+
+plugins:
+  - search
+  - gen-files:
+      scripts:
+        - docs/gen_nav.py
+  - literate-nav:
+      nav_file: SUMMARY.md
