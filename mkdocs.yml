@@ -1,4 +1,5 @@
 site_name: 4n86rakam1
+site_url: https://4n86rakam1.github.io
 
 theme:
   name: material
@@ -17,3 +18,10 @@ theme:
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
+
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.prune
+    - navigation.indexes
