@@ -1,5 +1,7 @@
 name: ci
 on:
+  repository_dispatch:
+    types: [writeup-updated]
   push:
     branches:
       - main
