@@ -1,0 +1,392 @@
+/* A single column of prose carrying the code and terminal output that the
+   writeups are mostly made of.
+
+   The page's structure — header, breadcrumbs, headings, labels — is set in the
+   same monospace the sources are written in, and only the prose is
+   proportional. The material is Markdown and terminal output, so the furniture
+   is built out of it rather than dressed over it. Light only: the palette is
+   chosen for one ground rather than hedged across two. */
+
+:root {
+  color-scheme: light;
+
+  /* Six steps, roughly 1.5× apart: enough to separate a word from a paragraph
+     from a section, few enough that picking one is not a decision. */
+  --s1: 0.2rem;
+  --s2: 0.4rem;
+  --s3: 0.7rem;
+  --s4: 1.1rem;
+  --s5: 1.8rem;
+  --s6: 3rem;
+
+  /* Body text is the root size and deliberately outside this scale; these are
+     the sizes that sit below it (meta, labels) and above it (headings). */
+  --text-xs: 0.74rem;
+  --text-sm: 0.84rem;
+  --text-md: 0.95rem;
+  --text-lg: 1.05rem;
+  --text-xl: 1.4rem;
+
+  /* Wider than a reading measure: the pages are mostly terminal output, code
+     and tables, which a prose measure cuts off and sends scrolling sideways.
+     One width for every page, so nothing shifts on navigation. */
+  --measure: 92ch;
+
+  --bg: #ffffff;
+  --fg: #12151a;
+  --muted: #5d6673;
+  --rule: #e3e7ec;
+  --link: #12507f;
+  --code-bg: #f4f6f8;
+
+  /* The emoji faces must stay behind the generic family; tests/test_stylesheet
+     holds that as an invariant. They are named at all because the writeups
+     quote challenge text containing emoji. */
+  --emoji: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji";
+  --sans:
+    system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif, var(--emoji);
+  --mono:
+    ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, monospace,
+    var(--emoji);
+  --struct: var(--mono);
+
+  --radius: 3px;
+  --leading: 1.5;
+  --leading-tight: 1.3;
+  --leading-code: 1.45;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* 17px rather than the browser's 16: the body face is a UI stack, which runs
+   small for continuous reading. Phones get the 16 back, where the screen is
+   closer to the eye. */
+html {
+  font-size: 17px;
+}
+
+body {
+  margin: 0 auto;
+  padding: 0 var(--s4) var(--s6);
+  max-width: var(--measure);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  line-height: var(--leading);
+  overflow-wrap: break-word;
+}
+
+a {
+  color: var(--link);
+  /* A third of the ink: enough to mark the link, not enough to cut the line of
+     text it sits in. */
+  text-decoration-color: color-mix(in srgb, var(--link) 35%, transparent);
+  text-underline-offset: 0.15em;
+}
+
+/* Everything that frames the writing rather than being it: small, monospaced,
+   and a step back in colour. */
+.breadcrumbs ol,
+.post-list time,
+.count,
+.post-meta,
+.site-footer {
+  color: var(--muted);
+  font-family: var(--struct);
+  font-size: var(--text-xs);
+}
+
+.site-nav a,
+.breadcrumbs a,
+.site-footer a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.site-nav a:hover,
+.breadcrumbs a:hover,
+.site-footer a:hover {
+  color: var(--fg);
+}
+
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s5);
+  align-items: baseline;
+  justify-content: space-between;
+  padding: var(--s5) 0 var(--s3);
+  /* Heavier than the rules inside the page, so the masthead reads as the edge
+     of the site rather than another section break. */
+  border-bottom: 2px solid var(--fg);
+  font-family: var(--struct);
+  font-size: var(--text-sm);
+}
+
+.site-name {
+  color: var(--fg);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.site-nav {
+  display: flex;
+  gap: var(--s4);
+}
+
+.breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin: var(--s4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The separator belongs to the item before it, so a wrapped trail never starts
+   a line with a stray slash. */
+.breadcrumbs li:not(:last-child)::after {
+  content: "/";
+  margin-left: var(--s2);
+  color: var(--rule);
+}
+
+/* The step between heading levels is carried by the space above them rather
+   than by size, so the breaks between sections stay findable while scrolling a
+   long writeup. The `##` marks keep the level readable at a glance now that the
+   sizes sit close together; their empty alternative text keeps them out of the
+   accessibility tree, where the element already carries the level. */
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--struct);
+  font-weight: 500;
+  line-height: var(--leading-tight);
+  text-wrap: balance;
+}
+
+h1 {
+  margin: var(--s5) 0 var(--s4);
+  font-size: var(--text-xl);
+}
+
+h2 {
+  margin: var(--s6) 0 var(--s3);
+  font-size: var(--text-lg);
+}
+
+h3 {
+  margin: var(--s5) 0 var(--s3);
+  font-size: var(--text-md);
+}
+
+h4 {
+  margin: var(--s4) 0 var(--s2);
+  font-size: var(--text-sm);
+}
+
+h2::before,
+h3::before,
+h4::before {
+  color: var(--muted);
+}
+
+h2::before {
+  content: "## " / "";
+}
+
+h3::before {
+  content: "### " / "";
+}
+
+h4::before {
+  content: "#### " / "";
+}
+
+p,
+ul,
+ol,
+pre,
+blockquote,
+table,
+details {
+  margin: var(--s3) 0;
+}
+
+/* Without this an anchored heading lands flush against the top of the window,
+   reading as though the section started above the fold. */
+:target {
+  scroll-margin-top: var(--s4);
+}
+
+blockquote {
+  padding-left: var(--s4);
+  border-left: 3px solid var(--rule);
+  color: var(--muted);
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Present to anything reading the document's structure, absent to the eye. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+hr {
+  margin: var(--s5) 0;
+  border: 0;
+  border-top: 1px solid var(--rule);
+}
+
+/* Tables in the writeups are wider than the measure. display: block gives the
+   table its own scroll container, at the cost of the table layout algorithm;
+   the alternative is the whole page scrolling sideways. */
+table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+th,
+td {
+  padding: var(--s2) var(--s3);
+  vertical-align: top;
+}
+
+th {
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--struct);
+  font-weight: 500;
+  text-align: left;
+}
+
+tbody tr:nth-child(odd) {
+  background: var(--code-bg);
+}
+
+/* Relative to whatever it sits in, so code inside a heading or a table follows
+   that context instead of jumping back to the body size. */
+code,
+pre {
+  font-family: var(--mono);
+  font-size: 0.85em;
+}
+
+:not(pre) > code {
+  padding: 0.1em 0.35em;
+  border-radius: var(--radius);
+  background: var(--code-bg);
+}
+
+pre {
+  overflow-x: auto;
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--code-bg);
+  line-height: var(--leading-code);
+}
+
+/* The 0.85em above would apply twice inside a pre. */
+pre code {
+  font-size: 1em;
+}
+
+.post-list,
+.inline-list {
+  padding: 0;
+  list-style: none;
+}
+
+.post-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s3);
+  align-items: baseline;
+  padding: var(--s1) 0;
+}
+
+.post-list time,
+.post-list .undated {
+  /* Keeps the date column from shrinking when a title wraps. */
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.inline-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s4);
+}
+
+.post-meta {
+  margin-top: calc(var(--s2) * -1);
+}
+
+/* Pagefind ships its own stylesheet; these are the variables it exposes, set to
+   the site's own tokens so the widget does not arrive as a separate design. */
+#search {
+  --pagefind-ui-primary: var(--fg);
+  --pagefind-ui-text: var(--fg);
+  --pagefind-ui-background: var(--bg);
+  --pagefind-ui-border: var(--rule);
+  --pagefind-ui-tag: var(--code-bg);
+  --pagefind-ui-border-width: 1px;
+  --pagefind-ui-border-radius: var(--radius);
+  --pagefind-ui-font: var(--sans);
+}
+
+.site-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s4);
+  margin-top: var(--s6);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--rule);
+}
+
+/* Below roughly a phone's width in portrait. */
+@media (max-width: 34rem) {
+  html {
+    font-size: 16px;
+  }
+
+  /* The structural links are set small, so on a touch screen they need room of
+     their own; otherwise the tap target is only as tall as the text. */
+  .site-nav a,
+  .site-footer a {
+    display: inline-block;
+    padding-block: var(--s3);
+  }
+
+  .site-header {
+    padding-bottom: var(--s1);
+  }
+
+  .site-nav {
+    gap: var(--s3);
+  }
+
+  /* Padding goes on the item, not the link: half the trail is plain text, and
+     padding only one of them leaves the two sitting on different baselines. */
+  .breadcrumbs li {
+    padding-block: var(--s2);
+  }
+
+  .breadcrumbs ol {
+    margin-top: var(--s2);
+  }
+}
