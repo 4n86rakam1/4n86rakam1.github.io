@@ -1,0 +1,19 @@
+- banner:
+  - link "4n86rakam1":
+    - /url: /
+  - navigation:
+    - link "Blog":
+      - /url: /blog/
+    - link "Writeup":
+      - /url: /writeup/
+    - link "Search":
+      - /url: /search/
+- main:
+  - article:
+    - heading "4n86rakam1" [level=1]
+    - paragraph: Notes on security engineering, and writeups from CTFs.
+- contentinfo:
+  - link "GitHub":
+    - /url: <external>
+  - link "LinkedIn":
+    - /url: <external>

@@ -1,0 +1,20 @@
+- banner:
+  - link "4n86rakam1":
+    - /url: /
+  - navigation:
+    - link "Blog":
+      - /url: /blog/
+    - link "Writeup":
+      - /url: /writeup/
+    - link "Search":
+      - /url: /search/
+- main:
+  - heading "Search" [level=1]
+  - search "Search this site":
+    - textbox "Search"
+    - button "Clear"
+- contentinfo:
+  - link "GitHub":
+    - /url: <external>
+  - link "LinkedIn":
+    - /url: <external>
