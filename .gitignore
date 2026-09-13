@@ -1,1 +1,3 @@
-docs/writeup
+content/writeup/
+dist/
+.venv/
