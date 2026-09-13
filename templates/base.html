@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="{{ site.language }}">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}{{ site.title }}{% endblock %}</title>
+    {# Pages built from content carry their own description; the generated
+    listings fall back to the site's. #}
+    <meta
+      name="description"
+      content="{% block description %}{{ (page.description if page is defined else none) or site.description }}{% endblock %}"
+    />
+    <meta name="author" content="{{ site.author }}" />
+    <meta property="og:site_name" content="{{ site.long_title }}" />
+    <meta property="og:title" content="{{ self.title() }}" />
+    <meta property="og:description" content="{{ self.description() }}" />
+    <meta property="og:type" content="website" />
+    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="stylesheet" href="/static/pygments.css" />
+    {% block head %}{% endblock %}
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="site-name" href="/">{{ site.title }}</a>
+      <nav class="site-nav">
+        {% for label, url in nav %}
+        <a href="{{ url }}">{{ label }}</a>
+        {% endfor %}
+      </nav>
+    </header>
+
+    {% if breadcrumbs is defined and breadcrumbs %}
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <ol>
+        {% for label, url in breadcrumbs %}
+        <li>
+          {% if loop.last %}<span aria-current="page">{{ label }}</span>{% elif
+          url %}<a href="{{ url }}">{{ label }}</a>{% else %}<span
+            >{{ label }}</span
+          >{% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+    </nav>
+    {% endif %}
+
+    <main>{% block content %}{% endblock %}</main>
+
+    <footer class="site-footer">
+      {% for label, url in footer_links %}
+      <a href="{{ url }}">{{ label }}</a>
+      {% endfor %}
+    </footer>
+  </body>
+</html>

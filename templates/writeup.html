@@ -1,0 +1,8 @@
+{% extends "base.html" %} {% block title %}{{ page.title }} · {{ site.long_title }}{%
+endblock %} {% block content %}
+<article data-pagefind-body>
+  {# The writeup sources open with their own `# ` heading, so rendering the
+  title here as well would give the page two h1 elements. #} {{ page.html|safe
+  }}
+</article>
+{% endblock %}

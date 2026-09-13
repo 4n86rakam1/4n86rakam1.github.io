@@ -1,0 +1,14 @@
+{% extends "base.html" %} {% block title %}Not found · {{ site.long_title }}{%
+endblock %} {% block
+content %}
+<h1>Not found</h1>
+<p>
+  There is no page at that address. Some writeup URLs changed when the site
+  moved to its own generator, so an old link may point at one of them.
+</p>
+<ul class="inline-list">
+  <li><a href="/">Front page</a></li>
+  <li><a href="/writeup/">Writeup index</a></li>
+  <li><a href="/search/">Search</a></li>
+</ul>
+{% endblock %}

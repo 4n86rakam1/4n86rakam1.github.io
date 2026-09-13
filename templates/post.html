@@ -1,0 +1,12 @@
+{% extends "base.html" %} {% block title %}{{ page.title }} · {{ site.long_title
+}}{% endblock %} {% block content %}
+<article data-pagefind-body>
+  <h1>{{ page.title }}</h1>
+  <p class="post-meta">
+    <time datetime="{{ page.date.isoformat() }}"
+      >{{ page.date.strftime("%d %B %Y") }}</time
+    >
+  </p>
+  {{ page.html|safe }}
+</article>
+{% endblock %}

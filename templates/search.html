@@ -1,0 +1,29 @@
+{% extends "base.html" %} {% block title %}Search · {{ site.long_title }}{%
+endblock %} {% block description %}Search the writeups and posts on {{
+site.title }}.{% endblock %} {% block head %}
+<link rel="stylesheet" href="/pagefind/pagefind-ui.css" />
+{# Pagefind is the only JavaScript on the site, and it loads on this page alone.
+Deferred, so it runs after the element it mounts into exists. #}
+<script src="/pagefind/pagefind-ui.js" defer></script>
+<script defer>
+  // showImages pulls the first image out of each result, and the writeups'
+  // images are relative to the page they sit on, so they resolve against
+  // /search/ and break.
+  window.addEventListener("DOMContentLoaded", () => {
+    new PagefindUI({
+      element: "#search",
+      showSubResults: true,
+      showImages: false,
+    });
+  });
+</script>
+{% endblock %} {% block content %}
+<h1>Search</h1>
+<div id="search"></div>
+<noscript>
+  <p>
+    Search needs JavaScript. The writeups are also reachable from the
+    <a href="/writeup/">index</a>.
+  </p>
+</noscript>
+{% endblock %}

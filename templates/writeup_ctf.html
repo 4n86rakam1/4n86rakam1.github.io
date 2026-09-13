@@ -1,0 +1,17 @@
+{% extends "base.html" %} {% block title %}{{ page.title }} · {{ site.long_title }}{%
+endblock %} {% block content %}
+<article data-pagefind-body>
+  {# Like a writeup, the CTF README opens with its own `# ` heading. #}
+  {{ page.html|safe }} {% if genres %}
+  <h2>Writeups</h2>
+  {% for genre, challenges in genres %} {% if genre %}
+  <h3>{{ genre }}</h3>
+  {% endif %}
+  <ul class="inline-list">
+    {% for challenge in challenges %}
+    <li><a href="{{ challenge.url }}">{{ challenge.title }}</a></li>
+    {% endfor %}
+  </ul>
+  {% endfor %} {% endif %}
+</article>
+{% endblock %}

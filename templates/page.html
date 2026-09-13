@@ -1,0 +1,13 @@
+{% extends "base.html" %} {% set is_front = page.url == "/" %} {% block title
+%}{% if is_front %}{{ site.title }}{% else %}{{ page.title }} · {{
+site.long_title }}{% endif %}{% endblock %} {% block content %}
+<article data-pagefind-body>
+  {# The front page's title is the site's own name, which the header already
+  carries — but a document still needs one heading, so it stays for whatever
+  reads the structure rather than the page. #} {% if is_front %}
+  <h1 class="visually-hidden">{{ page.title }}</h1>
+  {% else %}
+  <h1>{{ page.title }}</h1>
+  {% endif %} {{ page.html|safe }}
+</article>
+{% endblock %}

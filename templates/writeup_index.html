@@ -1,0 +1,23 @@
+{% extends "base.html" %} {% block title %}{{ title }} · {{ site.long_title }}{%
+endblock %} {% block content %}
+<h1>{{ title }}</h1>
+{% if entries %}
+<ul class="post-list">
+  {% for entry in entries %}
+  <li>
+    {% if entry.date %}
+    <time datetime="{{ entry.date.isoformat() }}"
+      >{{ entry.date.strftime("%Y-%m") }}</time
+    >
+    {% else %}
+    <span class="undated" aria-hidden="true">—</span>
+    {% endif %}
+    <a href="{{ entry.page.url }}">{{ entry.page.title }}</a>
+    {# A CTF whose writeups all live in its README has no child pages; showing a
+    bare 0 next to it reads as "nothing here". #} {% if entry.count %}
+    <span class="count">{{ entry.count }}</span>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endif %} {% endblock %}
