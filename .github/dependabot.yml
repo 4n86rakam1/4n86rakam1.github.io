@@ -1,0 +1,8 @@
+version: 2
+updates:
+  # Actions are pinned to commit SHAs, so nothing moves on its own and security
+  # fixes would otherwise arrive only when someone goes looking for them.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
