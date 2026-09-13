@@ -6,3 +6,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+
+  # uv.lock pins every Python dependency to a hash, including the Pagefind
+  # binary, so the same argument applies to them.
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly

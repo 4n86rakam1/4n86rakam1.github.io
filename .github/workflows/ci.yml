@@ -6,10 +6,20 @@ on:
     branches:
       - main
   workflow_dispatch:
+
+# The build reads; it never writes to the repository. Only the deploy job is
+# trusted with Pages, and only through an identity it requests at run time.
 permissions:
-  contents: write
+  contents: read
+
+# One deployment at a time, and never cancel one halfway: a half-published
+# site is worse than a late one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout origin
@@ -19,21 +29,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: 4n86rakam1/writeup
-          path: docs/writeup
-
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+          path: content/writeup
 
       - name: Install uv
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
-
-      - name: Set up Python
-        run: uv python install
-
-      - name: Install the project
-        run: uv sync --locked --all-extras --dev
-
-      - name: Enable caching
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
@@ -41,13 +39,49 @@ jobs:
           # entry past what the 10 GB repository quota is worth.
           prune-cache: true
 
-      - run: echo "cache_id=$(date --utc '+%V')" >> $GITHUB_ENV
+      - name: Install the project
+        run: uv sync --locked
 
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Run the tests
+        run: uv run pytest -m "not browser"
+
+      - name: Build the site
+        run: uv run python -m ssg
+
+      # Separate from the build because the build wipes dist: the search page
+      # is empty unless the index is written after it.
+      - name: Build the search index
+        run: uv run python -m pagefind --site dist
+
+      # Where playwright install puts browsers on Linux; the runner expands ~
+      # to the runner user's home.
+      - name: Restore the browser
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          key: mkdocs-material-${{ env.cache_id }}
-          path: ~/.cache
-          restore-keys: |
-            mkdocs-material-
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('uv.lock') }}
 
-      - run: uv run mkdocs gh-deploy --force
+      - name: Install the browser
+        run: uv run playwright install --with-deps chromium
+
+      - name: Check the built site in a browser
+        run: uv run pytest -m browser
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
