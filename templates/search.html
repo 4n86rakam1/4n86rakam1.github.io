@@ -1,6 +1,7 @@
 {% extends "base.html" %} {% block title %}Search · {{ site.long_title }}{%
 endblock %} {% block description %}Search the writeups and posts on {{
-site.title }}.{% endblock %} {% block head %}
+site.title }}.{% endblock %} {% block canonical_path %}/search/{% endblock %} {%
+block head %}
 <link rel="stylesheet" href="/pagefind/pagefind-ui.css" />
 {# Pagefind is the only JavaScript on the site, and it loads on this page alone.
 Deferred, so it runs after the element it mounts into exists. #}

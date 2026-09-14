@@ -12,12 +12,18 @@ from pathlib import Path
 
 import pytest
 
-from ssg.config import OUTPUT_DIR
+from ssg.config import CONTENT_DIR, OUTPUT_DIR
+
+SOURCE_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 
 pytestmark = pytest.mark.browser
 
 SNAPSHOT_DIR = Path(__file__).parent / "snapshots"
 UPDATE = os.environ.get("UPDATE_SNAPSHOTS") == "1"
+
+# Written out rather than imported: a canonical address checked against the
+# constant the build read from would agree with any address at all.
+SITE_URL = "https://4n86rakam1.github.io"
 
 PHONE = {"width": 375, "height": 812}
 DESKTOP = {"width": 1280, "height": 900}
@@ -35,6 +41,21 @@ PAGES = [
 SNAPSHOT_PAGES = [("front", "/"), ("search", "/search/")]
 
 VIEWPORTS = [pytest.param(PHONE, id="phone"), pytest.param(DESKTOP, id="desktop")]
+
+
+def writeup_sources_are_present():
+    """Whether this checkout has the writeups at all.
+
+    The sources, not the output: a skip decided by the output is a skip the
+    build can cause, which is the failure these checks are here to catch.
+    """
+    return any((CONTENT_DIR / "writeup").glob("*/"))
+
+
+def source_images_are_present():
+    return any(
+        path.suffix.lower() in SOURCE_IMAGE_SUFFIXES for path in CONTENT_DIR.rglob("*")
+    )
 
 
 def visit(page, site, path, viewport):
@@ -65,6 +86,12 @@ def test_a_writeup_holds_its_code_in_its_own_scroller(page, site, viewport):
     something inside it does, which is what keeps the page still."""
     path = "/writeup/CakeCTF_2023/web/Country_DB/"
     if not page.request.get(site + path).ok:
+        # Decided by the source of this one page: the writeups may not be
+        # checked out, and they may have renamed it, but if it is there and
+        # the site does not serve it the build lost it.
+        assert not (
+            CONTENT_DIR / "writeup" / "CakeCTF_2023" / "web" / "Country_DB"
+        ).is_dir(), "the source of that writeup is here and the site does not serve it"
         pytest.skip("the writeup sources are not checked out")
     visit(page, site, path, viewport)
     scrollable = page.evaluate(
@@ -94,6 +121,110 @@ def test_the_tap_targets_are_reachable_on_a_phone(page, site):
     )
     assert heights, "no navigation links were found"
     assert min(heights) >= 30, f"smallest tap target is {min(heights)}px tall"
+
+
+@pytest.mark.parametrize("path", PAGES)
+def test_the_page_is_canonical_at_the_address_it_was_served_from(page, site, path):
+    """The built site is read here rather than a template, so this is what a
+    crawler would be told after the whole build ran."""
+    visit(page, site, path, DESKTOP)
+    links = page.evaluate(
+        "() => [...document.querySelectorAll('link[rel=canonical]')]"
+        ".map(el => el.getAttribute('href'))"
+    )
+    assert links == [SITE_URL + path]
+
+
+def a_page_nested_deep_in_the_writeups():
+    """The four pages above sit at the top of the site; a writeup's address is
+    slugified from directory names, which is the part that could go wrong."""
+    for path in sorted(OUTPUT_DIR.rglob("index.html")):
+        directory = path.relative_to(OUTPUT_DIR).parent
+        if len(directory.parts) >= 3:
+            return f"/{directory.as_posix()}/"
+    return None
+
+
+def test_a_writeup_is_canonical_at_its_slugified_address(page, site):
+    path = a_page_nested_deep_in_the_writeups()
+    if path is None:
+        # The skip is for a checkout without the writeups, and is decided by
+        # the sources rather than by the output: asking the output whether it
+        # has a nested page turns the build losing all of them into a skip.
+        assert not writeup_sources_are_present(), (
+            "the writeup sources are checked out and no nested page was built"
+        )
+        pytest.skip("the writeup sources are not checked out")
+    visit(page, site, path, DESKTOP)
+    link = page.evaluate(
+        "() => document.querySelector('link[rel=canonical]').getAttribute('href')"
+    )
+    assert link == SITE_URL + path
+
+
+def test_the_icon_and_the_share_image_are_published(page, site):
+    for asset in ("/static/favicon.svg", "/static/og-image.png"):
+        assert page.request.get(site + asset).ok, f"{asset} is missing from the output"
+
+
+def test_the_front_page_describes_itself_in_a_way_a_parser_accepts(page, site):
+    visit(page, site, "/", DESKTOP)
+    data = page.evaluate(
+        "() => JSON.parse("
+        "document.querySelector('script[type=\"application/ld+json\"]').textContent)"
+    )
+    assert data["@type"] == "WebSite"
+    assert data["url"] == SITE_URL + "/"
+
+
+@pytest.mark.parametrize("path", PAGES)
+def test_only_the_search_page_runs_javascript(page, site, path):
+    """The structured data sits in a script element but is never executed;
+    this is what keeps that from becoming an excuse to add a real one."""
+    visit(page, site, path, DESKTOP)
+    executable = page.evaluate(
+        "() => [...document.querySelectorAll('script')]"
+        ".filter(el => el.type !== 'application/ld+json').length"
+    )
+    if path == "/search/":
+        assert executable >= 1, "the search page lost its script"
+    else:
+        assert executable == 0
+
+
+def a_page_carrying_images():
+    """The writeups decide which pages have screenshots, so the page to look at
+    is found in the output rather than named here."""
+    for path in sorted(OUTPUT_DIR.rglob("index.html")):
+        if "<img" in path.read_text(encoding="utf-8"):
+            directory = path.relative_to(OUTPUT_DIR).parent
+            return "/" if directory == Path(".") else f"/{directory.as_posix()}/"
+    return None
+
+
+def test_the_images_in_a_writeup_load_when_they_are_reached(page, site):
+    path = a_page_carrying_images()
+    if path is None:
+        # Same reason as above: a generator that stopped rendering images
+        # would otherwise leave this test with nothing to look at, and say so
+        # as a skip.
+        assert not source_images_are_present(), (
+            "the sources carry images and no page shows one"
+        )
+        pytest.skip("the writeup sources are not checked out")
+    visit(page, site, path, DESKTOP)
+    images = page.evaluate(
+        "() => [...document.querySelectorAll('article img')].map(el => ({"
+        "src: el.getAttribute('src'), loading: el.loading, decoding: el.decoding}))"
+    )
+    # Without this the check passes on any page that simply has no images.
+    assert images, f"{path} was chosen for its images and the browser found none"
+    eager = [
+        image["src"]
+        for image in images
+        if image["loading"] != "lazy" or image["decoding"] != "async"
+    ]
+    assert not eager, f"images that are not deferred: {eager[:3]}"
 
 
 @pytest.mark.parametrize("name,path", SNAPSHOT_PAGES)

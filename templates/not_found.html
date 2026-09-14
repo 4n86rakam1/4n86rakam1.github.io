@@ -1,6 +1,7 @@
 {% extends "base.html" %} {% block title %}Not found · {{ site.long_title }}{%
-endblock %} {% block
-content %}
+endblock %} {# The only page served from a file rather than a directory, and the
+only one a reader can reach at any address. #} {% block canonical_path
+%}/404.html{% endblock %} {% block content %}
 <h1>Not found</h1>
 <p>
   There is no page at that address. Some writeup URLs changed when the site

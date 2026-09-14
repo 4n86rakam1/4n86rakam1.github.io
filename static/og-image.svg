@@ -1,0 +1,55 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 1200 630"
+  width="1200"
+  height="630"
+  role="img"
+  aria-label="4n86rakam1 — security engineering notes and CTF writeups"
+>
+  <title>4n86rakam1</title>
+  <!-- The source of static/og-image.png. Social networks will not fetch an SVG,
+  so the PNG is what the meta tag points at; this is what it was rendered from.
+  -->
+  <rect width="1200" height="630" fill="#ffffff" />
+  <g transform="translate(88 110) scale(1.5)">
+    <rect width="64" height="64" rx="12" fill="#12151a" />
+    <path
+      d="M18 21 L30 32 L18 43"
+      fill="none"
+      stroke="#ffffff"
+      stroke-width="6"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <rect x="33" y="38" width="15" height="5" rx="2.5" fill="#ffffff" />
+  </g>
+  <text
+    x="88"
+    y="360"
+    fill="#12151a"
+    font-family="Liberation Sans, DejaVu Sans, Helvetica, Arial, sans-serif"
+    font-size="104"
+    font-weight="700"
+  >
+    4n86rakam1
+  </text>
+  <text
+    x="88"
+    y="424"
+    fill="#5d6673"
+    font-family="Liberation Sans, DejaVu Sans, Helvetica, Arial, sans-serif"
+    font-size="38"
+  >
+    Security engineering notes and CTF writeups.
+  </text>
+  <rect x="88" y="492" width="1024" height="2" fill="#e3e7ec" />
+  <text
+    x="88"
+    y="552"
+    fill="#12507f"
+    font-family="DejaVu Sans Mono, Liberation Mono, monospace"
+    font-size="32"
+  >
+    4n86rakam1.github.io
+  </text>
+</svg>

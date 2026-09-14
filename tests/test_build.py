@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from conftest import page
 
@@ -136,6 +138,44 @@ def test_only_publishable_asset_types_are_copied(isolated_site):
     assert (published / "shot.png").is_file()
     for withheld in ("notes.md~", "cache.sqlite", "scratch.md.tmp"):
         assert not (published / withheld).exists()
+
+
+def published_pages():
+    """The built pages with their code blocks removed: a writeup that shows
+    Markdown inside a fence is showing it on purpose."""
+    for path in sorted(OUTPUT_DIR.rglob("*.html")):
+        yield (
+            path,
+            re.sub(
+                r"<pre.*?</pre>", "", path.read_text(encoding="utf-8"), flags=re.DOTALL
+            ),
+        )
+
+
+def test_the_real_output_shows_no_markdown_that_was_meant_to_be_rendered():
+    """The writeups wrap screenshots in <details>, and a block the parser is
+    not asked to read reaches the reader as the text that was typed."""
+    if not (OUTPUT_DIR / INDEX_FILENAME).is_file():
+        pytest.skip("no built site; run `uv run python -m ssg` first")
+    unrendered = [
+        str(path.relative_to(OUTPUT_DIR))
+        for path, page in published_pages()
+        if re.search(r"!\[[^\]]*\]\([^)]*\)", page)
+    ]
+    assert not unrendered, f"image syntax reached the page: {unrendered[:5]}"
+
+
+def test_the_real_output_carries_no_parser_instructions():
+    """The attribute the generator adds to a <details> tag is for the parser;
+    a page that still shows it is one the parser did not read."""
+    if not (OUTPUT_DIR / INDEX_FILENAME).is_file():
+        pytest.skip("no built site; run `uv run python -m ssg` first")
+    leaked = [
+        str(path.relative_to(OUTPUT_DIR))
+        for path, page in published_pages()
+        if "markdown=" in page
+    ]
+    assert not leaked, f"pages carrying the attribute into the output: {leaked[:5]}"
 
 
 # Spelled out here rather than imported from the generator: a test that reads

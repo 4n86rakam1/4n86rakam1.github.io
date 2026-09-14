@@ -11,6 +11,7 @@ from pathlib import Path
 
 import frontmatter
 
+from . import seo
 from .config import CONTENT_DIR, INDEX_FILENAME, INDEX_STEMS, MARKDOWN_SUFFIX
 
 # Writeup pages carry no front matter, so their title has to come from the
@@ -62,7 +63,15 @@ class Page:
 
     @property
     def description(self):
-        return self.meta.get("description", "")
+        # The writeups arrive without front matter, so the summary a search
+        # result shows has to come out of the body.
+        return self.meta.get("description") or seo.summarize(self.body)
+
+    @property
+    def json_ld(self):
+        # Computed on the page because the page is the only object the
+        # templates are handed.
+        return seo.structured_data(self)
 
     @property
     def date(self):
