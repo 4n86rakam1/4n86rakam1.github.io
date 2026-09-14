@@ -20,7 +20,9 @@ The directory layout under `content/` is the URL layout. There is no routing con
 
 URL segments are slugified: `?`, `#`, `"` and `'` are dropped, anything outside `[A-Za-z0-9._()-]` folds to `_`, and leading and trailing underscores are trimmed. Brackets stay — they are permitted as sub-delims by RFC 3986 and cause no trouble in practice.
 
-**Compatibility with the MkDocs-era URLs is not kept.** Nineteen paths change. This drops a constraint, but it is also a bug fix: a directory named `Where's skat?` produces a URL whose `?` opens a query string, and every relative link on that page then resolves against the parent directory. Twelve links are broken through that path on the published MkDocs site today.
+**Compatibility with the MkDocs-era URLs is not kept.** Fourteen page URLs change. Ten of them can still be requested and are served a redirect page; the other four carry a `?` and never could be requested, so nothing placed there would ever be asked for. Nine image directories move as well and get nothing, a redirect page being no substitute for an image. This drops a constraint, but it is also a bug fix: a directory named `Where's skat?` produces a URL whose `?` opens a query string, and every relative link on that page then resolves against the parent directory. Twelve links are broken through that path on the published MkDocs site today.
+
+This section said nineteen until the tree was counted. Nineteen is ten plus nine — the requestable page URLs plus the image directories — which applies the reachability test to the pages and withholds it from the directories, four of which carry the same `?`. Counted under one rule the figure is fourteen, or twenty-three with the image directories included. The writeup sources and `gh-pages`, the only surviving copy of the MkDocs-era site, agree on every one of those numbers.
 
 Non-Markdown files (images) have their directories slugified but keep their file names as written on disk, because the Markdown refers to them by relative path.
 
@@ -89,11 +91,13 @@ The header carries the handle alone, `4n86rakam1`. `<title>` and `og:site_name` 
 
 ### Output
 
-Generate `sitemap.xml` listing every page URL, **without `lastmod`**. Source mtimes are rewritten by clone and rsync so they cannot be trusted, and the writeups carry no date, which would leave `lastmod` on the blog entries alone.
+Generate `sitemap.xml` listing every page URL except the redirect pages, **without `lastmod`**. A redirect page names another page as its canonical, so listing it would ask a crawler to index a page that disclaims itself. Source mtimes are rewritten by clone and rsync so they cannot be trusted, and the writeups carry no date, which would leave `lastmod` on the blog entries alone.
 
 Generate `404.html`. GitHub Pages serves `/404.html` from the root.
 
-Put search at `/search/` with Pagefind. Only that page loads JavaScript; article pages stay at zero. The index is built after the site with `uv run python -m pagefind --site dist`. Pagefind publishes a Python wrapper, so its binary is pinned in `uv.lock` with a hash like every other dependency, and the build needs no Node toolchain. Article templates mark their `<article>` with `data-pagefind-body`, which both narrows the index to the writing and keeps the listings, the search page and the 404 page out of it. One `Search` entry joins the header nav. Pagefind's widget is restyled through the CSS variables it exposes so it does not arrive as a second design.
+Generate `robots.txt`, `/llms.txt` and `/.well-known/security.txt`, none of them written by hand. Nothing is withheld from crawlers, so `robots.txt` exists for its `Sitemap:` line alone. `llms.txt` is built from the page list — the posts and the CTF indexes, with the sitemap named for everything below them — because a hand-written index goes stale on the next writeup. `security.txt` reports through the repository's advisory form, which keeps a mailbox out of a file that is there to be scraped, and its `Expires` is computed from the build date. RFC 9116 caps that field at a year, so the workflow also runs on a monthly schedule: a site that is never rebuilt would otherwise serve an expired one.
+
+Put search at `/search/` with Pagefind. Only that page and the redirect pages load JavaScript; article pages stay at zero. The index is built after the site with `uv run python -m pagefind --site dist`. Pagefind publishes a Python wrapper, so its binary is pinned in `uv.lock` with a hash like every other dependency, and the build needs no Node toolchain. Article templates mark their `<article>` with `data-pagefind-body`, which both narrows the index to the writing and keeps the listings, the search page, the 404 page and the redirect pages out of it. One `Search` entry joins the header nav. Pagefind's widget is restyled through the CSS variables it exposes so it does not arrive as a second design.
 
 **Verify at the end of `build()` that a front page was written, and exit non-zero if not.** Measured: with the content missing the build still exits zero and produces a site with no entry point. That is the failure Astro was rejected for, and it should not be reproduced here.
 
@@ -116,7 +120,7 @@ Screenshot comparison is deliberately absent. The fonts differ between CI and a 
 
 ### CI and removal
 
-Check the writeup repository out into `content/writeup` instead of `docs/writeup`, and replace `uv run mkdocs gh-deploy --force` with build, then Pagefind, then the browser checks, then an upload of `dist` as a Pages artifact that a second job deploys.
+Check the writeup repository out into `content/writeup` instead of `docs/writeup`, and replace `uv run mkdocs gh-deploy --force` with build, then Pagefind, then the tests, then the browser checks, then an upload of `dist` as a Pages artifact that a second job deploys. The tests come after both builds, not before them: the checks that read the real output skip themselves when nothing is built, and a fresh runner has nothing built.
 
 **Deploy through the Pages artifact, not a branch.** `actions/upload-pages-artifact` and `actions/deploy-pages` are published by GitHub, so the Actions policy admits them — it rejects only third parties, which rules out something like `peaceiris/actions-gh-pages`. The permission model is the reason to prefer them: the workflow keeps `contents: read` throughout, and only the deploy job holds `pages: write` and `id-token: write`, which it uses to request a deployment identity at run time. Pushing to a branch would instead need `contents: write` over the whole repository, and would commit build output back into git on every writeup change.
 
@@ -140,20 +144,18 @@ Sequence the work so the dependency swap and the tests land first and **the CI s
 
 ## Verification
 
-- The internal link check reports no breakage originating in the generator. Six of 2377 links currently fail: four are the checker's own false positives (`mailto:` written as HTML entities) and two are pseudo-code and a self-referential link in the article text. All of them appear in the MkDocs output too
-- `uv run python -m ssg` exits zero and writes 214 pages, and Pagefind indexes the 211 that carry writing
-- Nothing outside `.nojekyll` in the output begins with a dot: the writeups arrive as a checkout, and its `.git` holds the token that made it
+- The internal link check reports no breakage originating in the generator. Every `href` and `src` in the output is resolved against the output tree, skipping external schemes, `mailto:` and bare fragments; two of 2612 internal links fail, both in the article text — a relative link pointing below the page that carries it, and a PowerShell variable that Markdown read as a link. Both are broken in the MkDocs output too
+- `uv run python -m ssg` exits zero and writes 224 pages: 214 of its own, and ten redirect pages standing at the MkDocs-era URLs. Pagefind indexes the 211 that carry writing
+- Nothing in the output begins with a dot but `.nojekyll` and `.well-known/`, which holds `security.txt` and nothing else: the writeups arrive as a checkout, and its `.git` holds the token that made it
 - pytest passes
 - After the switch, the published front page, the URLs containing symbols, and the images all return HTTP 200
 
 ## Open questions
 
-- Whether a favicon, `og:image`, `canonical` and `robots.txt` are wanted
 - Focus ring styling, a skip link, and measured contrast ratios
-- `loading="lazy"` on images
 - Date formats differ: `13 September 2026` on the blog, `2026-09` in the writeup index
 - External links: whether to mark them, and whether to open them in a new tab
-- Permalink anchors on headings
+- A visible permalink control on headings. Headings rendered from Markdown carry an `id`, so a deep link can be written by hand; there is nothing on the page to click to obtain one
 
 ## Status
 

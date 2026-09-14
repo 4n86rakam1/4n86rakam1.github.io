@@ -5,15 +5,21 @@ on:
   push:
     branches:
       - main
+  # security.txt `Expires` comes from the build date, so a site that is never
+  # rebuilt serves an expired one. Off the hour and off the first because
+  # GitHub drops scheduled runs at the popular times. GitHub also disables a
+  # schedule after 60 days without repository activity, which a scheduled run
+  # is not; a shorter lifetime would only make that lapse fall sooner.
+  schedule:
+    - cron: "17 4 8 * *"
   workflow_dispatch:
 
-# The build reads; it never writes to the repository. Only the deploy job is
-# trusted with Pages, and only through an identity it requests at run time.
+# Only the deploy job is trusted with Pages, through an identity it requests at
+# run time; the build never writes to the repository.
 permissions:
   contents: read
 
-# One deployment at a time, and never cancel one halfway: a half-published
-# site is worse than a late one.
+# Never cancel one halfway: a half-published site is worse than a late one.
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -35,26 +41,25 @@ jobs:
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
-          # setup-uv v9 flipped this default to false, which grows the cached
-          # entry past what the 10 GB repository quota is worth.
+          # v9 flipped this default, and the cache then outgrows the 10 GB quota.
           prune-cache: true
 
       - name: Install the project
         run: uv sync --locked
 
-      - name: Run the tests
-        run: uv run pytest -m "not browser"
-
       - name: Build the site
         run: uv run python -m ssg
 
-      # Separate from the build because the build wipes dist: the search page
-      # is empty unless the index is written after it.
+      # The build wipes dist, so the index has to be written after it.
       - name: Build the search index
         run: uv run python -m pagefind --site dist
 
-      # Where playwright install puts browsers on Linux; the runner expands ~
-      # to the runner user's home.
+      # After the build and the index: the checks that read the real output skip
+      # on a fresh runner, and the guard against publishing .git never once ran.
+      - name: Run the tests
+        run: uv run pytest -m "not browser"
+
+      # Where playwright install puts browsers on Linux.
       - name: Restore the browser
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:

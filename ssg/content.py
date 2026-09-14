@@ -1,7 +1,6 @@
 """Content discovery and the page model.
 
-The source tree mirrors the published URL tree, so routing stays a single rule
-and no page needs per-file path configuration.
+The source tree mirrors the published URL tree, so routing stays a single rule.
 """
 
 import datetime as dt
@@ -14,13 +13,12 @@ import frontmatter
 from . import seo
 from .config import CONTENT_DIR, INDEX_FILENAME, INDEX_STEMS, MARKDOWN_SUFFIX
 
-# Writeup pages carry no front matter, so their title has to come from the
-# leading `# ` heading.
+# Writeup pages carry no front matter, so the title comes from the `# ` heading.
 HEADING_PATTERN = re.compile(r"^#[ \t]+(.+?)[ \t]*$", re.MULTILINE)
 
-# A directory named `Where's skat?` becomes a URL whose `?` starts a query
-# string, and every relative link on that page then resolves against the parent
-# directory. Drop what changes how a URL parses, and fold the rest into `_`.
+# A `?` in a segment starts a query string, and every relative link on that page
+# then resolves against the parent directory. Drop what changes how a URL parses
+# and fold the rest into `_`.
 DROPPED_IN_SEGMENT = re.compile(r"[\"'?#]+")
 SEPARATOR_IN_SEGMENT = re.compile(r"[^A-Za-z0-9._()-]+")
 
@@ -38,11 +36,17 @@ class Page:
     html: str = ""
 
     @property
-    def url_parts(self):
+    def source_parts(self):
+        """The URL parts before slugification: what the MkDocs-era site
+        published, and so where a redirect for this page has to be written."""
         parts = list(self.source.relative_to(CONTENT_DIR).with_suffix("").parts)
         if parts and parts[-1] in INDEX_STEMS:
             parts.pop()
-        return [slugify_segment(part) for part in parts]
+        return parts
+
+    @property
+    def url_parts(self):
+        return [slugify_segment(part) for part in self.source_parts]
 
     @property
     def url(self):
@@ -69,8 +73,7 @@ class Page:
 
     @property
     def json_ld(self):
-        # Computed on the page because the page is the only object the
-        # templates are handed.
+        # On the page because the page is the only object the templates get.
         return seo.structured_data(self)
 
     @property
@@ -81,19 +84,8 @@ class Page:
         return value
 
     @property
-    def tags(self):
-        # Recorded but not published: the tag pages come back when there are
-        # enough posts for them to help rather than pad.
-        return list(self.meta.get("tags") or [])
-
-    @property
-    def is_draft(self):
-        return bool(self.meta.get("draft"))
-
-    @property
     def section(self):
-        # A page directly under the content root belongs to no section: the
-        # front page and any top-level page stand on their own.
+        # A page directly under the content root belongs to no section.
         parts = self.url_parts
         return parts[0] if len(parts) > 1 else ""
 
@@ -104,7 +96,6 @@ def load_page(path):
 
 
 def discover(content_dir):
-    pages = [
+    return [
         load_page(path) for path in sorted(content_dir.rglob(f"*{MARKDOWN_SUFFIX}"))
     ]
-    return [page for page in pages if not page.is_draft]

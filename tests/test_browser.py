@@ -8,6 +8,7 @@ does.
 """
 
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -21,8 +22,7 @@ pytestmark = pytest.mark.browser
 SNAPSHOT_DIR = Path(__file__).parent / "snapshots"
 UPDATE = os.environ.get("UPDATE_SNAPSHOTS") == "1"
 
-# Written out rather than imported: a canonical address checked against the
-# constant the build read from would agree with any address at all.
+# Written out rather than imported, so it cannot agree with any address at all.
 SITE_URL = "https://4n86rakam1.github.io"
 
 PHONE = {"width": 375, "height": 812}
@@ -35,9 +35,8 @@ PAGES = [
     pytest.param("/search/", id="search"),
 ]
 
-# Only pages whose content does not move with the writeup repository are
-# pinned; a listing would change on every new writeup and the snapshot would
-# report that as a regression.
+# Only pages whose content does not move with the writeup repository: a listing
+# would change on every new writeup and be reported as a regression.
 SNAPSHOT_PAGES = [("front", "/"), ("search", "/search/")]
 
 VIEWPORTS = [pytest.param(PHONE, id="phone"), pytest.param(DESKTOP, id="desktop")]
@@ -86,9 +85,8 @@ def test_a_writeup_holds_its_code_in_its_own_scroller(page, site, viewport):
     something inside it does, which is what keeps the page still."""
     path = "/writeup/CakeCTF_2023/web/Country_DB/"
     if not page.request.get(site + path).ok:
-        # Decided by the source of this one page: the writeups may not be
-        # checked out, and they may have renamed it, but if it is there and
-        # the site does not serve it the build lost it.
+        # Decided by this page's source: it may be absent or renamed, but if it
+        # is here and the site does not serve it, the build lost it.
         assert not (
             CONTENT_DIR / "writeup" / "CakeCTF_2023" / "web" / "Country_DB"
         ).is_dir(), "the source of that writeup is here and the site does not serve it"
@@ -100,6 +98,43 @@ def test_a_writeup_holds_its_code_in_its_own_scroller(page, site, viewport):
     )
     assert scrollable >= 1, "no code block scrolls, so nothing was constrained"
     assert horizontal_overflow(page) <= 0
+
+
+# One of the ten MkDocs-era paths, named rather than looked up so the test fails
+# if the receiver stops being written.
+MOVED_URL = "/writeup/CSAW-CTF-2023-Quals/rev/rebug 1/"
+MOVED_TO = "/writeup/CSAW-CTF-2023-Quals/rev/rebug_1/"
+
+
+def writeups_are_checked_out(page, site):
+    """Probes the destination, never the receiver.
+
+    Probing the receiver would turn the one failure these tests exist to catch
+    — it stopped being written — into a skip, because a missing receiver and
+    absent sources 404 alike.
+    """
+    return page.request.get(site + MOVED_TO).ok
+
+
+def test_an_old_url_lands_on_the_page_it_moved_to(page, site):
+    if not writeups_are_checked_out(page, site):
+        pytest.skip("the writeup sources are not checked out")
+    page.goto(site + MOVED_URL)
+    page.wait_for_url(site + MOVED_TO, timeout=10_000)
+
+
+def test_an_old_url_moves_with_no_javascript(page, browser, site):
+    """The meta refresh on its own. The script is the fast path, not the only
+    one, and a reader who blocks scripts is exactly who follows an old link."""
+    if not writeups_are_checked_out(page, site):
+        pytest.skip("the writeup sources are not checked out")
+    context = browser.new_context(java_script_enabled=False)
+    try:
+        scriptless = context.new_page()
+        scriptless.goto(site + MOVED_URL)
+        scriptless.wait_for_url(site + MOVED_TO, timeout=10_000)
+    finally:
+        context.close()
 
 
 def test_the_search_box_renders(page, site):
@@ -148,8 +183,7 @@ def a_page_nested_deep_in_the_writeups():
 def test_a_writeup_is_canonical_at_its_slugified_address(page, site):
     path = a_page_nested_deep_in_the_writeups()
     if path is None:
-        # The skip is for a checkout without the writeups, and is decided by
-        # the sources rather than by the output: asking the output whether it
+        # Decided by the sources, not the output: asking the output whether it
         # has a nested page turns the build losing all of them into a skip.
         assert not writeup_sources_are_present(), (
             "the writeup sources are checked out and no nested page was built"
@@ -205,9 +239,8 @@ def a_page_carrying_images():
 def test_the_images_in_a_writeup_load_when_they_are_reached(page, site):
     path = a_page_carrying_images()
     if path is None:
-        # Same reason as above: a generator that stopped rendering images
-        # would otherwise leave this test with nothing to look at, and say so
-        # as a skip.
+        # Same reason as above: a generator that stopped rendering images would
+        # leave this test with nothing to look at and say so as a skip.
         assert not source_images_are_present(), (
             "the sources carry images and no page shows one"
         )
@@ -227,13 +260,20 @@ def test_the_images_in_a_writeup_load_when_they_are_reached(page, site):
     assert not eager, f"images that are not deferred: {eager[:3]}"
 
 
+# The footer links to personal profiles; the structure is what this pins.
+EXTERNAL_URL = re.compile(r"(- /url: )https?://\S+")
+
+
+def structure(snapshot):
+    return EXTERNAL_URL.sub(r"\1<external>", snapshot.rstrip("\n"))
+
+
 @pytest.mark.parametrize("name,path", SNAPSHOT_PAGES)
 def test_the_page_structure_is_unchanged(page, site, name, path):
     visit(page, site, path, DESKTOP)
-    actual = page.locator("body").aria_snapshot().rstrip("\n")
+    actual = structure(page.locator("body").aria_snapshot())
     expected_file = SNAPSHOT_DIR / f"{name}.yaml"
-    # Writing only under the flag keeps a test run from leaving changes in the
-    # repository behind it.
+    # Writing only under the flag keeps a run from changing the repository.
     if UPDATE:
         SNAPSHOT_DIR.mkdir(exist_ok=True)
         expected_file.write_text(actual + "\n", encoding="utf-8")

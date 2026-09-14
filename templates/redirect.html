@@ -1,0 +1,30 @@
+{# Stands alone rather than extending base.html: nothing here is part of the
+site, and a reader should be gone before the header finishes painting. The
+absent data-pagefind-body is what keeps these pages out of the search index. #}
+<!doctype html>
+<html lang="{{ site.language }}">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Moved · {{ site.long_title }}</title>
+    <meta http-equiv="refresh" content="0; url={{ target }}" />
+    {# Not noindex: the canonical is what hands the old URL's standing to the
+    new one, and noindex would drop it instead. #}
+    <link rel="canonical" href="{{ site.url }}{{ target }}" />
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>This page moved</h1>
+      <p>
+        The writeup URLs changed when the site moved to its own generator. This
+        one is now at <a href="{{ target }}">{{ site.url }}{{ target }}</a>.
+      </p>
+    </main>
+    <script>
+      // replace() rather than assign(): the old URL is not somewhere the back
+      // button should be able to return to.
+      location.replace({{ target | tojson }});
+    </script>
+  </body>
+</html>
