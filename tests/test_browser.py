@@ -23,7 +23,7 @@ SNAPSHOT_DIR = Path(__file__).parent / "snapshots"
 UPDATE = os.environ.get("UPDATE_SNAPSHOTS") == "1"
 
 # Written out rather than imported, so it cannot agree with any address at all.
-SITE_URL = "https://4n86rakam1.github.io"
+SITE_URL = "https://4n86rakam1.com"
 
 PHONE = {"width": 375, "height": 812}
 DESKTOP = {"width": 1280, "height": 900}

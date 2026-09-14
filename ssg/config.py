@@ -13,7 +13,7 @@ SITE_TITLE = "4n86rakam1"
 # For <title> and og:site_name, where a search result is the only context the
 # reader has. The header keeps the handle alone.
 SITE_LONG_TITLE = "Shinya Murakami (4n86rakam1)"
-SITE_URL = "https://4n86rakam1.github.io"
+SITE_URL = "https://4n86rakam1.com"
 SITE_DESCRIPTION = "Security engineering notes and CTF writeups."
 SITE_AUTHOR = "4n86rakam1"
 SITE_LANGUAGE = "en"

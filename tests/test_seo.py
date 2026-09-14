@@ -11,7 +11,7 @@ from conftest import page
 
 from ssg.seo import as_script_json, summarize
 
-SITE = "https://4n86rakam1.github.io"
+SITE = "https://4n86rakam1.com"
 
 
 def test_the_first_paragraph_becomes_the_summary():

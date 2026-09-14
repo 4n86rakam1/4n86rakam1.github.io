@@ -15,7 +15,7 @@ from conftest import page
 
 from ssg.build import make_environment
 
-SITE = "https://4n86rakam1.github.io"
+SITE = "https://4n86rakam1.com"
 
 CANONICAL_PATTERN = re.compile(r'<link\s+rel="canonical"\s+href="([^"]+)"')
 ICON_PATTERN = re.compile(r'<link\s+rel="icon"\s+href="([^"]+)"[^>]*>')

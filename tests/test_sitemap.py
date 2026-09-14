@@ -3,8 +3,8 @@ from ssg.sitemap import build_sitemap
 
 def test_every_url_is_listed_absolute():
     xml = build_sitemap(["/", "/writeup/"])
-    assert "<loc>https://4n86rakam1.github.io/</loc>" in xml
-    assert "<loc>https://4n86rakam1.github.io/writeup/</loc>" in xml
+    assert "<loc>https://4n86rakam1.com/</loc>" in xml
+    assert "<loc>https://4n86rakam1.com/writeup/</loc>" in xml
 
 
 def test_characters_with_meaning_in_xml_are_escaped():

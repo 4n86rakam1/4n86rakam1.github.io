@@ -23,9 +23,7 @@ def fields(text):
 
 
 def test_robots_points_at_the_sitemap():
-    assert "Sitemap: https://4n86rakam1.github.io/sitemap.xml" in (
-        rootfiles.build_robots()
-    )
+    assert "Sitemap: https://4n86rakam1.com/sitemap.xml" in (rootfiles.build_robots())
 
 
 def test_robots_withholds_nothing():
@@ -62,9 +60,7 @@ def test_security_publishes_no_mail_address():
 
 def test_security_names_where_it_is_served_from():
     written = fields(rootfiles.build_security(dt.date(2026, 9, 13)))
-    assert (
-        written["Canonical"] == "https://4n86rakam1.github.io/.well-known/security.txt"
-    )
+    assert written["Canonical"] == "https://4n86rakam1.com/.well-known/security.txt"
 
 
 def test_llms_opens_with_the_site_as_its_heading_and_summary():
@@ -76,7 +72,7 @@ def test_llms_opens_with_the_site_as_its_heading_and_summary():
 def test_llms_links_a_post_with_its_description():
     post = page("blog/hello.md", "# Hello", title="Hello", description="A first post")
     assert (
-        "- [Hello](https://4n86rakam1.github.io/blog/hello/): A first post"
+        "- [Hello](https://4n86rakam1.com/blog/hello/): A first post"
         in rootfiles.build_llms([post], [])
     )
 
@@ -88,10 +84,7 @@ def test_llms_falls_back_to_the_date_when_a_post_has_no_description():
 
 def test_llms_counts_the_writeups_under_each_ctf():
     written = rootfiles.build_llms([], [ctf("writeup/SomeCTF/README.md", "Some", 12)])
-    assert (
-        "- [Some](https://4n86rakam1.github.io/writeup/SomeCTF/): 12 writeups"
-        in written
-    )
+    assert "- [Some](https://4n86rakam1.com/writeup/SomeCTF/): 12 writeups" in written
 
 
 def test_llms_does_not_say_one_writeups():
@@ -104,4 +97,4 @@ def test_llms_leaves_out_a_section_it_has_nothing_for():
 
 
 def test_llms_points_at_the_sitemap_for_everything_it_leaves_out():
-    assert "https://4n86rakam1.github.io/sitemap.xml" in rootfiles.build_llms([], [])
+    assert "https://4n86rakam1.com/sitemap.xml" in rootfiles.build_llms([], [])

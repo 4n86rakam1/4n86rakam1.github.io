@@ -62,7 +62,7 @@ def test_the_sitemap_lists_the_front_page_as_the_root(isolated_site):
     (content_dir / "index.md").write_text("---\ntitle: Home\n---\n\nBody.\n")
     build_module.build()
     sitemap = (output_dir / "sitemap.xml").read_text()
-    assert "<loc>https://4n86rakam1.github.io/</loc>" in sitemap
+    assert "<loc>https://4n86rakam1.com/</loc>" in sitemap
     # 404.html is not an index.html, so it never reaches the sitemap.
     assert "404" not in sitemap
 
@@ -83,7 +83,7 @@ def test_an_old_url_is_served_a_page_that_points_at_the_new_one(isolated_site):
     build_module.build()
     written = (output_dir / old / "index.html").read_text()
     assert f'content="0; url={new}"' in written
-    assert f'rel="canonical" href="https://4n86rakam1.github.io{new}"' in written
+    assert f'rel="canonical" href="https://4n86rakam1.com{new}"' in written
     assert f'location.replace("{new}")' in written
     # The reader with no JavaScript and a browser ignoring meta refresh still
     # needs something to click.
@@ -97,7 +97,7 @@ def test_an_old_url_stays_out_of_the_sitemap(isolated_site):
     _, new = with_a_moved_page(content_dir)
     build_module.build()
     sitemap = (output_dir / "sitemap.xml").read_text()
-    assert f"<loc>https://4n86rakam1.github.io{new}</loc>" in sitemap
+    assert f"<loc>https://4n86rakam1.com{new}</loc>" in sitemap
     assert "thing 1" not in sitemap and "thing%201" not in sitemap
 
 
