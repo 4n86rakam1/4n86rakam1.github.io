@@ -57,6 +57,39 @@ def source_images_are_present():
     )
 
 
+LOCAL = "http://127.0.0.1"
+
+
+def keep_the_network_out(context):
+    """The suite serves the built site from 127.0.0.1 and has nothing to fetch
+    from anywhere else, so any other address is a bug whatever it is. Today it
+    is the counter, and a test run is not a visit: unblocked, every local run
+    and every push files real page views against the live dashboard.
+
+    Fitted to the context rather than the page. A route on a page covers that
+    page, which left the one test below building its own context to count
+    itself on every run.
+    """
+    context.route(lambda url: not url.startswith(LOCAL), lambda route: route.abort())
+    return context
+
+
+@pytest.fixture(autouse=True)
+def keep_the_network_out_of_every_test(context):
+    keep_the_network_out(context)
+
+
+@pytest.fixture
+def scriptless_context(browser):
+    """The suite's only second context, so a new one cannot be opened without
+    the block — which is the mistake that let the counter out the first time."""
+    context = keep_the_network_out(browser.new_context(java_script_enabled=False))
+    try:
+        yield context
+    finally:
+        context.close()
+
+
 def visit(page, site, path, viewport):
     page.set_viewport_size(viewport)
     response = page.goto(site + path)
@@ -123,18 +156,14 @@ def test_an_old_url_lands_on_the_page_it_moved_to(page, site):
     page.wait_for_url(site + MOVED_TO, timeout=10_000)
 
 
-def test_an_old_url_moves_with_no_javascript(page, browser, site):
+def test_an_old_url_moves_with_no_javascript(page, scriptless_context, site):
     """The meta refresh on its own. The script is the fast path, not the only
     one, and a reader who blocks scripts is exactly who follows an old link."""
     if not writeups_are_checked_out(page, site):
         pytest.skip("the writeup sources are not checked out")
-    context = browser.new_context(java_script_enabled=False)
-    try:
-        scriptless = context.new_page()
-        scriptless.goto(site + MOVED_URL)
-        scriptless.wait_for_url(site + MOVED_TO, timeout=10_000)
-    finally:
-        context.close()
+    scriptless = scriptless_context.new_page()
+    scriptless.goto(site + MOVED_URL)
+    scriptless.wait_for_url(site + MOVED_TO, timeout=10_000)
 
 
 def test_the_search_box_renders(page, site):
@@ -226,11 +255,18 @@ def test_only_the_search_page_runs_javascript(page, site, path):
         assert executable == 0
 
 
+ARTICLE = re.compile(r"<article\b.*?</article>", re.DOTALL | re.IGNORECASE)
+
+
 def a_page_carrying_images():
     """The writeups decide which pages have screenshots, so the page to look at
-    is found in the output rather than named here."""
+    is found in the output rather than named here. Only what the article holds
+    is looked at, which is what the checks below go on to query: the pixel that
+    counts the visit is an image too, and it is outside the article on every
+    page, so a sweep of the whole file lands on the first page in the output."""
     for path in sorted(OUTPUT_DIR.rglob("index.html")):
-        if "<img" in path.read_text(encoding="utf-8"):
+        article = ARTICLE.search(path.read_text(encoding="utf-8"))
+        if article and "<img" in article.group(0):
             directory = path.relative_to(OUTPUT_DIR).parent
             return "/" if directory == Path(".") else f"/{directory.as_posix()}/"
     return None
@@ -320,3 +356,51 @@ def test_the_page_structure_is_unchanged(page, site, name, path):
             f"no snapshot for {name}; run with UPDATE_SNAPSHOTS=1, review it, commit it"
         )
     assert actual == expected_file.read_text(encoding="utf-8").rstrip("\n")
+
+
+def test_no_context_in_the_suite_files_a_page_view(page, scriptless_context, site):
+    """What says the block still works, on both kinds of context the suite makes.
+    An aborted request never finishes, so a finished one is a real view filed by
+    a test — the failure that reading the fixture alone cannot detect, and the
+    one that got past the first version of this test by watching only a page."""
+    reached = []
+
+    def watch(request):
+        if "goatcounter" in request.url:
+            reached.append(request.url)
+
+    page.on("requestfinished", watch)
+    visit(page, site, "/", DESKTOP)
+    page.wait_for_load_state("networkidle")
+
+    scriptless = scriptless_context.new_page()
+    scriptless.on("requestfinished", watch)
+    scriptless.goto(site + "/")
+    scriptless.wait_for_load_state("networkidle")
+
+    assert not reached, f"the test run counted itself: {reached}"
+
+
+def test_no_test_opens_a_context_the_block_does_not_reach():
+    """The block is fitted to a context, so a context built anywhere but the two
+    fixtures above is one nothing blocks. That is exactly how the counter
+    reached the live dashboard on every run of the suite once already."""
+    source = Path(__file__).read_text(encoding="utf-8")
+    built = re.findall(r"browser\.new_context\(", source)
+    assert len(built) == 1, (
+        f"{len(built)} contexts are built here; scriptless_context should be the"
+        " only one, so that every context passes through keep_the_network_out"
+    )
+
+
+def test_a_heading_is_not_read_with_its_permalink_glued_on(page, site):
+    """The anchor is a child of the heading, so the heading's name is computed
+    from it too: unnamed, every heading reads as its text with "Permanent link
+    to this heading" run onto the end, which is what a reader skimming with the
+    H key hears on each one. Structural rather than a quoted string, so the page
+    can be reworded without this needing an edit."""
+    visit(page, site, "/privacy/", DESKTOP)
+    snapshot = page.locator("article h2").first.aria_snapshot()
+    name = re.search(r'- heading "([^"]*)"', snapshot).group(1)
+    text = re.search(r"- text: (.*)", snapshot).group(1)
+    assert name == text.strip(), snapshot

@@ -25,7 +25,18 @@ NAV = (
     ("Search", "/search/"),
 )
 
-FOOTER_LINKS = (
+# Counted by fetching an image rather than by the script GoatCounter hands out:
+# the pages here run no JavaScript, and tests/test_browser holds that as an
+# invariant rather than an intention. The pixel cannot see a referrer or a
+# screen size, which the script would have read from the browser.
+ANALYTICS_COUNT_URL = "https://aut7phoo0aip.goatcounter.com/count"
+
+# The footer holds two kinds of link and reads left to right: this site's own
+# pages, then the only things on the page that lead away from it. Left is where
+# everything belonging to the site already sits — the masthead, the trail, the
+# headings — so the exits go at the far end of the last line.
+FOOTER_PAGES = (("Privacy", "/privacy/"),)
+FOOTER_PROFILES = (
     ("GitHub", "https://github.com/4n86rakam1"),
     ("LinkedIn", "https://www.linkedin.com/in/shinyamurakami/"),
 )

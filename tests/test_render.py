@@ -5,8 +5,10 @@ from conftest import CODE_BACKGROUND, MINIMUM_CONTRAST, contrast_ratio
 
 from ssg.render import (
     add_loading_hints,
+    label_permalinks,
     make_renderer,
     mark_details_contents_as_markdown,
+    open_external_links_in_a_new_tab,
     point_images_at_published_files,
     raise_highlight_contrast,
     render,
@@ -185,7 +187,9 @@ def test_a_link_inside_a_details_block_reaches_the_page_as_a_link():
         make_renderer(),
         "<details><summary>s</summary>\n\n[text](https://example.com/)\n\n</details>\n",
     )
-    assert '<a href="https://example.com/">text</a>' in html
+    assert (
+        '<a href="https://example.com/" target="_blank" rel="noopener">text</a>' in html
+    )
 
 
 def test_code_inside_a_details_block_is_still_code():
@@ -291,3 +295,107 @@ def test_an_attribute_that_only_ends_in_src_is_left_alone():
 def test_the_closing_quote_has_to_match_the_opening_one():
     tag = "<img src=\"a.png'>"
     assert point_images_at_published_files(tag) == tag
+
+
+def test_a_link_to_another_host_opens_in_its_own_tab():
+    assert (
+        open_external_links_in_a_new_tab('<a href="https://example.com/x">x</a>')
+        == '<a href="https://example.com/x" target="_blank" rel="noopener">x</a>'
+    )
+
+
+def test_a_protocol_relative_link_leaves_the_site_as_well():
+    assert (
+        open_external_links_in_a_new_tab('<a href="//example.com/x">x</a>')
+        == '<a href="//example.com/x" target="_blank" rel="noopener">x</a>'
+    )
+
+
+@pytest.mark.parametrize(
+    "tag",
+    [
+        '<a href="../writeup/">x</a>',
+        '<a href="/search/">x</a>',
+        '<a href="#flag">x</a>',
+        # No `//`, so it never leaves for a tab of its own.
+        '<a href="mailto:nobody@example.com">x</a>',
+    ],
+)
+def test_a_link_that_stays_on_the_site_keeps_the_tab_it_is_in(tag):
+    assert open_external_links_in_a_new_tab(tag) == tag
+
+
+def test_a_link_that_already_names_a_target_is_left_alone():
+    tag = '<a href="https://example.com" target="_self">x</a>'
+    assert open_external_links_in_a_new_tab(tag) == tag
+
+
+def test_an_anchor_is_read_to_its_end_even_with_an_angle_bracket_in_a_value():
+    assert (
+        open_external_links_in_a_new_tab('<a href="https://example.com" title="a > b">')
+        == '<a href="https://example.com" title="a > b" target="_blank"'
+        ' rel="noopener">'
+    )
+
+
+def test_an_attribute_that_only_ends_in_href_is_not_the_address():
+    tag = '<a data-href="https://example.com" href="/search/">x</a>'
+    assert open_external_links_in_a_new_tab(tag) == tag
+
+
+def test_a_rendered_link_to_another_host_carries_the_attributes():
+    assert (
+        '<a href="https://example.com" target="_blank" rel="noopener">x</a>'
+        in render(make_renderer(), "[x](https://example.com)")
+    )
+
+
+def test_a_heading_anchor_is_named_for_a_reader_who_hears_it():
+    assert (
+        label_permalinks('<a class="headerlink" href="#x">#</a>')
+        == '<a data-pagefind-ignore aria-label="Permanent link to this heading"'
+        ' class="headerlink" href="#x">#</a>'
+    )
+
+
+def test_a_heading_carries_an_anchor_pointing_at_itself():
+    html = render(make_renderer(), "## The flag")
+    assert 'id="the-flag"' in html
+    assert 'class="headerlink" href="#the-flag"' in html
+
+
+def test_a_heading_is_named_by_its_own_text_rather_than_its_anchor():
+    """The anchor is a child, so its name would otherwise be read as part of the
+    heading's: "The flagPermanent link to this heading"."""
+    assert '<h2 id="the-flag" aria-label="The flag">' in render(
+        make_renderer(), "## The flag"
+    )
+
+
+def test_a_heading_name_keeps_the_words_and_drops_the_markup():
+    assert 'aria-label="ls in a heading"' in render(
+        make_renderer(), "## `ls` in a heading"
+    )
+
+
+def test_a_quote_in_a_heading_does_not_end_the_name():
+    """Markdown escapes `<`, `>` and `&` in text and leaves `"` alone, and the
+    name goes into a double-quoted attribute."""
+    assert 'aria-label="He said &quot;hi&quot;"' in render(
+        make_renderer(), '## He said "hi"'
+    )
+
+
+def test_a_heading_with_no_permalink_is_left_as_it_is():
+    assert "aria-label" not in label_permalinks("<h2>Plain</h2>")
+
+
+def test_the_heading_id_is_the_one_the_writeups_already_link_to():
+    """The anchor is new; the slug it points at is what ~350 in-page links in
+    the writeups were written against, so it has to be the same slug."""
+    html = render(make_renderer(), "## Step 1: Find the Bug")
+    assert 'id="step-1-find-the-bug"' in html
+
+
+def test_a_heading_anchor_is_kept_out_of_the_search_index():
+    assert "data-pagefind-ignore" in render(make_renderer(), "## The flag")

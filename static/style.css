@@ -35,6 +35,11 @@
   --bg: #ffffff;
   --fg: #12151a;
   --muted: #5d6673;
+  /* For a glyph that frames the writing rather than being it. --rule is a
+     border colour and at 1.24:1 a character drawn in it is barely there, while
+     --muted draws one as heavily as the words beside it. This clears the 3:1
+     WCAG asks of a non-text mark and no more, so the step back survives. */
+  --faint: #8d939c;
   --rule: #e3e7ec;
   --link: #12507f;
   --code-bg: #f4f6f8;
@@ -84,6 +89,25 @@ a {
      text it sits in. */
   text-decoration-color: color-mix(in srgb, var(--link) 35%, transparent);
   text-underline-offset: 0.15em;
+}
+
+/* A link that leaves the site says so before it is followed, which is what the
+   new tab it opens into would otherwise be: unannounced. The attribute is
+   written by ssg.render onto links to another host and nothing else, so the
+   selector and the rule that decides "external" cannot drift apart. The
+   alternative text carries the same warning to a reader who hears the link
+   rather than seeing it — WCAG G201 asks for it, and an empty alternative here
+   would leave only the sighted half warned. */
+a[target="_blank"]::after {
+  /* Declared twice on purpose. Alternative text in `content` is recent enough
+     that an engine without it throws the whole declaration out, and one
+     declaration would take the arrow with it — leaving neither half of the
+     warning. The plain form below is what those engines keep. */
+  content: "↗";
+  content: "↗" / " (opens in a new tab)";
+  margin-left: 0.15em;
+  color: var(--faint);
+  font-size: var(--text-xs);
 }
 
 /* Drawn in the page's own link colour rather than left to the browser, which
@@ -172,11 +196,15 @@ a {
 }
 
 /* The separator belongs to the item before it, so a wrapped trail never starts
-   a line with a stray slash. */
+   a line with a stray slash. Its empty alternative text is what makes it a mark
+   rather than a word — the list already tells a screen reader where the page
+   sits, and read out it is "Home slash Privacy". It is also what the 3:1 this
+   colour clears is the right floor for: a glyph that is announced is text, and
+   text answers to 4.5:1. */
 .breadcrumbs li:not(:last-child)::after {
-  content: "/";
+  content: "/" / "";
   margin-left: var(--s2);
-  color: var(--rule);
+  color: var(--faint);
 }
 
 /* The step between heading levels is carried by the space above them rather
@@ -231,6 +259,32 @@ h3::before {
 
 h4::before {
   content: "#### " / "";
+}
+
+/* A reader who wants to send someone to one section needs the anchor; everyone
+   else is reading past it. Out of sight until the heading is under the pointer,
+   and always visible where there is no pointer to hover with. It keeps its
+   place in the tab order either way: a keyboard reader has no other way to take
+   the link, and the focus ring brings it back into view. */
+/* --muted rather than --faint: this one is a link whose text is the character
+   itself, so it answers to the 4.5:1 asked of text, not the 3:1 a decorative
+   mark answers to. */
+.headerlink {
+  margin-left: var(--s2);
+  color: var(--muted);
+  text-decoration: none;
+  opacity: 0;
+}
+
+:is(h1, h2, h3, h4, h5, h6):hover .headerlink,
+.headerlink:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .headerlink {
+    opacity: 1;
+  }
 }
 
 p,
@@ -379,10 +433,26 @@ pre code {
 .site-footer {
   display: flex;
   flex-wrap: wrap;
+  justify-content: space-between;
   gap: var(--s2) var(--s4);
   margin-top: var(--s6);
   padding-top: var(--s3);
   border-top: 1px solid var(--rule);
+}
+
+/* Out of the flow, so the one-pixel image that does the counting cannot leave a
+   line box under the footer. Not display: none, which browsers are free to
+   treat as a reason never to fetch it. */
+.counter {
+  position: absolute;
+}
+
+/* Once the two groups no longer fit on one line each takes its own, and
+   space-between leaves a single item where the line starts. */
+.footer-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s4);
 }
 
 /* Below roughly a phone's width in portrait. */

@@ -26,6 +26,12 @@ FIXED_WIDTH_PATTERN = re.compile(r"(?<!-)\bwidth:\s*(?!1px)\d+(?:\.\d+)?(px|rem|
 # it is held to what the sheet actually declares.
 PAGE_BACKGROUND = "#ffffff"
 TEXT_COLOURS = {"--fg": "#12151a", "--link": "#12507f", "--muted": "#5d6673"}
+# WCAG 2.1 AA asks 3:1 of a mark that carries meaning without being read, which
+# is what the breadcrumb separator is: the ordered list already tells a screen
+# reader where the page sits. Only the page background, the one ground a mark
+# in this colour is ever drawn on.
+MINIMUM_NON_TEXT_CONTRAST = 3
+NON_TEXT_COLOURS = {"--faint": "#8d939c"}
 
 
 @pytest.fixture(scope="module")
@@ -93,7 +99,9 @@ def test_the_palette_is_the_one_the_contrast_checks_measure(stylesheet):
     """Without this the checks below go on passing after a colour changes, by
     measuring whatever the sheet now says against itself."""
     declared = dict(
-        TEXT_COLOURS, **{"--bg": PAGE_BACKGROUND, "--code-bg": CODE_BACKGROUND}
+        TEXT_COLOURS,
+        **NON_TEXT_COLOURS,
+        **{"--bg": PAGE_BACKGROUND, "--code-bg": CODE_BACKGROUND},
     )
     for token, value in declared.items():
         assert f"{token}: {value};" in stylesheet, f"{token} is no longer {value}"
@@ -106,6 +114,24 @@ def test_the_palette_is_the_one_the_contrast_checks_measure(stylesheet):
 def test_every_text_colour_clears_the_contrast_minimum(token, ground):
     ratio = contrast_ratio(TEXT_COLOURS[token], ground)
     assert ratio >= MINIMUM_CONTRAST, f"{token} on {ground} is {ratio:.2f}:1"
+
+
+@pytest.mark.parametrize("token", sorted(NON_TEXT_COLOURS))
+def test_every_non_text_colour_clears_its_own_minimum(token):
+    ratio = contrast_ratio(NON_TEXT_COLOURS[token], PAGE_BACKGROUND)
+    assert ratio >= MINIMUM_NON_TEXT_CONTRAST, (
+        f"{token} on {PAGE_BACKGROUND} is {ratio:.2f}:1"
+    )
+
+
+def test_no_glyph_is_drawn_in_the_border_colour(stylesheet):
+    """--rule is for lines. A character drawn in it reads as an artefact rather
+    than a mark, which is what the breadcrumb separator was."""
+    for block in re.findall(r"\{[^}]*\}", stylesheet):
+        # Either quote: a separator respelled with single quotes is the same
+        # glyph and would otherwise walk past this.
+        if re.search(r"content:\s*[\"']\S", block):
+            assert "var(--rule)" not in block, block.strip()
 
 
 def test_the_sheet_draws_its_own_focus_ring(stylesheet):
@@ -128,3 +154,14 @@ def test_the_skip_link_keeps_its_place_in_the_tab_order(stylesheet):
     for declarations in rules:
         assert "display: none" not in declarations
         assert "visibility: hidden" not in declarations
+
+
+def test_the_heading_anchor_is_drawn_as_text_rather_than_as_a_mark(stylesheet):
+    """The permalink is a link whose text is the character itself, so it is held
+    to the text minimum. --faint clears 3:1 and no more, which is the ground a
+    decorative mark stands on, not this one."""
+    rule = re.search(r"\n\.headerlink\s*\{([^}]*)\}", stylesheet)
+    assert rule is not None, "the sheet no longer has a .headerlink rule to check"
+    token = re.search(r"color:\s*var\((--[\w-]+)\)", rule.group(1))
+    assert token is not None, ".headerlink names no colour"
+    assert token.group(1) in TEXT_COLOURS, f".headerlink is drawn in {token.group(1)}"

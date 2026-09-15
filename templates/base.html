@@ -78,10 +78,37 @@
 
     <main id="content">{% block content %}{% endblock %}</main>
 
+    {# Two groups rather than one row: the site's own pages and the links that
+    leave it are different things, and undivided they read as one list. The two
+    on the right wear no arrow, unlike an outward link in the writing: the
+    attribute the marker selects on is written by ssg.render over body content,
+    and the furniture is deliberately left plain. Which side of the footer a
+    link is on is what says where it goes here. #}
     <footer class="site-footer">
-      {% for label, url in footer_links %}
-      <a href="{{ url }}">{{ label }}</a>
-      {% endfor %}
+      <div class="footer-group">
+        {% for label, url in footer_pages %}
+        <a href="{{ url }}">{{ label }}</a>
+        {% endfor %}
+      </div>
+      <div class="footer-group">
+        {% for label, url in footer_profiles %}
+        <a href="{{ url }}">{{ label }}</a>
+        {% endfor %}
+      </div>
     </footer>
+
+    {# Counting is a request for an image, so the page stays free of JavaScript;
+    what this costs and what it leaves with the counter is written out on
+    /privacy/. The address is the one the page is canonical at rather than the
+    one it was reached by, so a page with an old URL pointing at it is still one
+    page. The receivers themselves do not extend this template and so are never
+    counted on the way through. #}
+    <img
+      class="counter"
+      src="{{ analytics_count_url }}?p={{ self.canonical_path()|urlencode }}"
+      alt=""
+      width="1"
+      height="1"
+    />
   </body>
 </html>

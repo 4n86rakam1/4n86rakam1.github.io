@@ -9,9 +9,11 @@ from pygments.formatters import HtmlFormatter
 
 from . import blog, content, images, redirects, render, rootfiles, sitemap, writeup
 from .config import (
+    ANALYTICS_COUNT_URL,
     BLOG_SEGMENT,
     CONTENT_DIR,
-    FOOTER_LINKS,
+    FOOTER_PAGES,
+    FOOTER_PROFILES,
     INDEX_FILENAME,
     NAV,
     NOT_FOUND_FILENAME,
@@ -73,7 +75,9 @@ def make_environment():
             "language": SITE_LANGUAGE,
         },
         nav=NAV,
-        footer_links=FOOTER_LINKS,
+        analytics_count_url=ANALYTICS_COUNT_URL,
+        footer_pages=FOOTER_PAGES,
+        footer_profiles=FOOTER_PROFILES,
     )
     return env
 

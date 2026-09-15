@@ -460,3 +460,104 @@ def test_every_image_a_page_names_is_a_file_that_was_written():
     # Without this the sweep passes by finding nothing to sweep.
     assert checked, "no local images in the output; this read the wrong thing"
     assert not missing, f"images pointing at nothing: {missing[:5]}"
+
+
+def test_the_real_output_gives_its_headings_anchors():
+    """Without this the guard below passes on a site that lost its permalinks."""
+    if not (OUTPUT_DIR / INDEX_FILENAME).is_file():
+        pytest.skip("no built site; run `uv run python -m ssg` first")
+    anchored = sum(page.count('class="headerlink"') for _, page in published_pages())
+    assert anchored > 0, "no heading in the built site carries an anchor"
+
+
+def test_no_heading_anchor_in_the_real_output_reaches_the_search_index():
+    """The anchor sits inside data-pagefind-body, so its glyph joins the heading
+    in the index and in the excerpt a result prints. Measured with the attribute
+    taken off: 1400 headings indexed as `Description#`, `Flag#` and the like."""
+    if not (OUTPUT_DIR / INDEX_FILENAME).is_file():
+        pytest.skip("no built site; run `uv run python -m ssg` first")
+    exposed = [
+        str(path.relative_to(OUTPUT_DIR))
+        for path, page in published_pages()
+        if re.search(r'<a(?![^>]*data-pagefind-ignore)[^>]*class="headerlink"', page)
+    ]
+    assert not exposed, f"a heading anchor reaches the search index: {exposed[:5]}"
+
+
+# Taken off the built page rather than from the config the page was built from:
+# a check that reads the same tuple the template read would pass whatever it says.
+FURNITURE_LINK_PATTERN = re.compile(
+    r"<(?:nav|footer)\b[^>]*>(.*?)</(?:nav|footer)>", re.DOTALL | re.IGNORECASE
+)
+INTERNAL_HREF_PATTERN = re.compile(r'href="(/[^"#?]*)"')
+
+
+def test_every_link_in_the_furniture_reaches_a_published_page():
+    """The header and footer are on every page, so one address that was never
+    built is a dead link on all 224 of them rather than on one."""
+    if not (OUTPUT_DIR / INDEX_FILENAME).is_file():
+        pytest.skip("no built site; run `uv run python -m ssg` first")
+    front = (OUTPUT_DIR / INDEX_FILENAME).read_text(encoding="utf-8")
+    targets = {
+        href
+        for block in FURNITURE_LINK_PATTERN.findall(front)
+        for href in INTERNAL_HREF_PATTERN.findall(block)
+    }
+    assert targets, "the front page shows no internal link in its header or footer"
+    missing = [
+        href
+        for href in sorted(targets)
+        if not (OUTPUT_DIR / href.strip("/") / INDEX_FILENAME).is_file()
+        and not (OUTPUT_DIR / href.lstrip("/")).is_file()
+    ]
+    assert not missing, f"the furniture links to pages that were never built: {missing}"
+
+
+def test_an_old_url_is_not_counted_as_a_page_view(isolated_site):
+    """A receiver is a doorway rather than a page. Counting it would record two
+    views for one reader, since the page it sends them to counts itself."""
+    content_dir, output_dir = isolated_site
+    old, new = with_a_moved_page(content_dir)
+    build_module.build()
+    # Without this the check passes on a build that counts nothing at all.
+    assert "counter" in (output_dir / new.strip("/") / "index.html").read_text()
+    assert "counter" not in (output_dir / old / "index.html").read_text()
+
+
+# Written out rather than imported: a check that reads the same constant the
+# template read would agree with whatever that constant says.
+COUNTER_PATTERN = re.compile(
+    r'class="counter"\s+src="https://aut7phoo0aip\.goatcounter\.com/count\?p=([^"]*)"'
+)
+
+
+def address_of(path):
+    """The address a built file is served at, read off where it sits."""
+    relative = path.relative_to(OUTPUT_DIR)
+    if relative.name != INDEX_FILENAME:
+        return "/" + relative.as_posix()
+    parent = relative.parent.as_posix()
+    return "/" if parent == "." else f"/{parent}/"
+
+
+def test_every_page_counts_itself_and_no_page_counts_another():
+    """A pixel naming the wrong address is a silent wrong number: the request
+    succeeds, the dashboard fills up, and the counts are attached to a page the
+    reader never opened."""
+    if not (OUTPUT_DIR / INDEX_FILENAME).is_file():
+        pytest.skip("no built site; run `uv run python -m ssg` first")
+    wrong = []
+    counted = 0
+    for path in sorted(OUTPUT_DIR.rglob("*.html")):
+        found = COUNTER_PATTERN.search(path.read_text(encoding="utf-8"))
+        if found is None:
+            continue
+        counted += 1
+        # Compared decoded: the address rides in a query parameter, so two
+        # writeups whose directory names hold brackets arrive as %28 and %29.
+        # That is the escaping doing its job, not a different address.
+        reported = unquote(found.group(1))
+        if reported != address_of(path):
+            wrong.append(f"{address_of(path)} counts as {reported}")
+    assert counted > 0, "no built page carries a counter"
+    assert not wrong, wrong[:5]

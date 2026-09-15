@@ -26,6 +26,18 @@ SOURCE_LINK_PATTERN = re.compile(
 # Anything with a scheme, and protocol-relative links, belong to another host.
 EXTERNAL_LINK_PATTERN = re.compile(r"^(?:[a-z][a-z0-9+.-]*:)?//", re.IGNORECASE)
 
+# Spelled the way IMAGE_TAG_PATTERN spells a tag, for the same reason: an
+# attribute value may hold the `>` that would otherwise end the match early.
+ANCHOR_TAG_PATTERN = re.compile(
+    r"""<a\b((?:[^>"']|"[^"]*"|'[^']*')*)>""", re.IGNORECASE
+)
+HREF_PATTERN = re.compile(
+    r"""(?<![-\w])href\s*=\s*(?P<quote>["'])(?P<url>[^"']*)(?P=quote)""", re.IGNORECASE
+)
+# `noreferrer` is left off: the sites these writeups cite deserve to see where
+# the reader came from, and `noopener` alone is what closes the opener handle.
+EXTERNAL_LINK_ATTRIBUTES = ' target="_blank" rel="noopener"'
+
 HIGHLIGHT_CSS_CLASS = "highlight"
 
 # Markdown writes these tags, so the hints go on after conversion; the templates'
@@ -62,6 +74,38 @@ DETAILS_MARKDOWN_ATTRIBUTE = '<details markdown="1"'
 # not display an attribute nobody wrote.
 FENCE_PATTERN = re.compile(r"^\s*(?:```|~~~)")
 
+# A heading a reader can link to without reading the URL bar. `#` rather than
+# the conventional pilcrow because the headings already wear their Markdown
+# level, and the class is the one `toc` writes.
+PERMALINK_GLYPH = "#"
+PERMALINK_CLASS = "headerlink"
+# Read in place of a bare "#", and shown as the tooltip, from one string.
+PERMALINK_LABEL = "Permanent link to this heading"
+PERMALINK_ANCHOR_PATTERN = re.compile(rf'<a class="{PERMALINK_CLASS}"')
+# The anchor sits inside `data-pagefind-body`, so without the first attribute
+# the glyph joins the heading in the search index and in the excerpt printed
+# under a result.
+PERMALINK_ANCHOR_REPLACEMENT = (
+    f'<a data-pagefind-ignore aria-label="{PERMALINK_LABEL}" class="{PERMALINK_CLASS}"'
+)
+
+# The anchor is a child of the heading, so a reader skimming by heading hears the
+# anchor's name run onto the end of the heading's own: "Overview" arrives as
+# "OverviewPermanent link to this heading", once per heading. Naming the heading
+# outright settles it, and unlike hiding the anchor it leaves the anchor to the
+# readers who would use it. Spelled the way the image tags are, because a heading
+# carrying an attr_list class is still a tag whose value may hold a `>`. The
+# lazy quantifier stops at the right anchor: a heading holds at most one.
+HEADING_WITH_PERMALINK_PATTERN = re.compile(
+    r"<h(?P<level>[1-6])(?P<attributes>(?:[^>\"']|\"[^\"]*\"|'[^']*')*)>"
+    rf'(?P<text>.*?)(?=<a[^>]*class="{PERMALINK_CLASS}")',
+    re.DOTALL,
+)
+MARKUP_PATTERN = re.compile(r"<[^>]+>")
+# Markdown escapes `<`, `>` and `&` in text but leaves `"` alone, and the name is
+# going into a double-quoted attribute.
+ATTRIBUTE_UNSAFE = {'"': "&quot;"}
+
 MARKDOWN_EXTENSIONS = (
     "toc",
     "tables",
@@ -79,6 +123,12 @@ MARKDOWN_EXTENSIONS = (
 # label theirs. The css_class matches superfences, so one stylesheet covers both.
 MARKDOWN_EXTENSION_CONFIGS = {
     "codehilite": {"guess_lang": False, "css_class": HIGHLIGHT_CSS_CLASS},
+    # No slugify here: the default is what the ~350 in-page links in the
+    # writeups were written against.
+    "toc": {
+        "permalink": PERMALINK_GLYPH,
+        "permalink_title": PERMALINK_LABEL,
+    },
 }
 
 PYGMENTS_STYLE = "default"
@@ -132,6 +182,46 @@ def _rewrite_source_link(match):
 def rewrite_source_links(html):
     """Point links at published URLs instead of the Markdown files they name."""
     return SOURCE_LINK_PATTERN.sub(_rewrite_source_link, html)
+
+
+def _open_in_a_new_tab(match):
+    attributes = match.group(1)
+    href = HREF_PATTERN.search(attributes)
+    if href is None or not EXTERNAL_LINK_PATTERN.match(href.group("url")):
+        return match.group(0)
+    # An author who set one decided where the link opens on purpose.
+    if re.search(r"(?:^|\s)target\s*=", attributes, re.IGNORECASE):
+        return match.group(0)
+    return f"<a{attributes}{EXTERNAL_LINK_ATTRIBUTES}>"
+
+
+def open_external_links_in_a_new_tab(html):
+    """Send a link to another host to its own tab, marked as one in the sheet."""
+    return ANCHOR_TAG_PATTERN.sub(_open_in_a_new_tab, html)
+
+
+def label_permalinks(html):
+    """Name the heading anchors for a reader who hears them, and hide them from
+    the search index."""
+    return PERMALINK_ANCHOR_PATTERN.sub(PERMALINK_ANCHOR_REPLACEMENT, html)
+
+
+def _name_the_heading(match):
+    text = MARKUP_PATTERN.sub("", match.group("text")).strip()
+    if not text:
+        return match.group(0)
+    for character, escape in ATTRIBUTE_UNSAFE.items():
+        text = text.replace(character, escape)
+    return (
+        f"<h{match.group('level')}{match.group('attributes')} "
+        f'aria-label="{text}">{match.group("text")}'
+    )
+
+
+def name_headings_carrying_a_permalink(html):
+    """Give a heading its own text as its name, so the anchor inside it stops
+    being read as part of it."""
+    return HEADING_WITH_PERMALINK_PATTERN.sub(_name_the_heading, html)
 
 
 def _add_loading_hints(match):
@@ -201,6 +291,12 @@ def render(renderer, text):
     """The renderer is reset so one document's state cannot leak into the next."""
     renderer.reset()
     html = renderer.convert(mark_details_contents_as_markdown(text))
-    return add_loading_hints(
-        point_images_at_published_files(rewrite_source_links(html))
-    )
+    # In execution order, because the order is load-bearing: the image passes
+    # run after the link rewrite that may have moved an address, and the heading
+    # is named after the anchor inside it is there to be excluded.
+    html = rewrite_source_links(html)
+    html = point_images_at_published_files(html)
+    html = add_loading_hints(html)
+    html = open_external_links_in_a_new_tab(html)
+    html = label_permalinks(html)
+    return name_headings_carrying_a_permalink(html)

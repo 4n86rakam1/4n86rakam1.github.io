@@ -16,6 +16,8 @@
     - textbox "Search"
     - button "Clear"
 - contentinfo:
+  - link "Privacy":
+    - /url: /privacy/
   - link "GitHub":
     - /url: <external>
   - link "LinkedIn":
