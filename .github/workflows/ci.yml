@@ -72,10 +72,19 @@ jobs:
       - name: Check the built site in a browser
         run: uv run pytest -m browser
 
+      # Not upload-pages-artifact: it drops every dot entry, security.txt too.
+      - name: Archive the site
+        run: |
+          tar --dereference --hard-dereference --directory dist \
+            -cf "$RUNNER_TEMP/artifact.tar" --exclude=.git --exclude=.github .
+
       - name: Upload the site
-        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          path: dist
+          name: github-pages
+          path: ${{ runner.temp }}/artifact.tar
+          retention-days: 1
+          if-no-files-found: error
 
   deploy:
     needs: build
