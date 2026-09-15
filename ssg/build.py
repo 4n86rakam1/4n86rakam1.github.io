@@ -7,7 +7,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from pygments.formatters import HtmlFormatter
 
-from . import blog, content, redirects, render, rootfiles, sitemap, writeup
+from . import blog, content, images, redirects, render, rootfiles, sitemap, writeup
 from .config import (
     BLOG_SEGMENT,
     CONTENT_DIR,
@@ -138,7 +138,9 @@ def emit_blog_index(env, posts):
 
 def emit_content_assets():
     """Copy the publishable non-page files, keeping their place in the source
-    tree: the writeups reference their images by relative path."""
+    tree: the writeups reference their images by relative path. Images are
+    re-encoded on the way out; everything else is copied as it stands."""
+    published = {}
     for path in CONTENT_DIR.rglob("*"):
         if not path.is_file():
             continue
@@ -155,8 +157,23 @@ def emit_content_assets():
             *(content.slugify_segment(part) for part in relative.parent.parts),
             relative.name,
         )
+        convert = images.is_convertible(path)
+        if convert:
+            destination = images.published_path(destination)
+        # Two images whose names differ only in their suffix converge on one
+        # WebP, and the second would replace the first. The writeups come from a
+        # repository this one does not control, so the case is worth naming.
+        if destination in published:
+            raise DuplicateOutputError(
+                f"{path} and {published[destination]} both publish at "
+                f"{destination.relative_to(OUTPUT_DIR)}"
+            )
+        published[destination] = path
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(path, destination)
+        if convert:
+            destination.write_bytes(images.encode(path))
+        else:
+            shutil.copy2(path, destination)
 
 
 def emit_assets():
@@ -166,7 +183,10 @@ def emit_assets():
     formatter = HtmlFormatter(
         style=render.PYGMENTS_STYLE, cssclass=render.HIGHLIGHT_CSS_CLASS
     )
-    write(Path("static", PYGMENTS_CSS_NAME), formatter.get_style_defs())
+    write(
+        Path("static", PYGMENTS_CSS_NAME),
+        render.raise_highlight_contrast(formatter.get_style_defs()),
+    )
     # Without this, Pages runs the output through Jekyll, which drops any
     # directory whose name starts with an underscore.
     write(".nojekyll", "")

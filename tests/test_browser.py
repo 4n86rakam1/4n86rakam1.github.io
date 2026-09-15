@@ -260,6 +260,43 @@ def test_the_images_in_a_writeup_load_when_they_are_reached(page, site):
     assert not eager, f"images that are not deferred: {eager[:3]}"
 
 
+def test_the_images_in_a_writeup_are_really_there(page, site):
+    """The tag's address and the file the build wrote are decided in two
+    different places. Disagreeing is a broken image, which every check that
+    reads the markup alone reports as fine."""
+    path = a_page_carrying_images()
+    if path is None:
+        assert not source_images_are_present(), (
+            "the sources carry images and no page shows one"
+        )
+        pytest.skip("the writeup sources are not checked out")
+    visit(page, site, path, DESKTOP)
+    # Deferred images do not fetch until they are reached, so the page is taken
+    # to the bottom first and given the loads a moment to finish.
+    page.evaluate("() => window.scrollTo(0, document.body.scrollHeight)")
+    page.wait_for_load_state("networkidle")
+    missing = page.evaluate(
+        "() => [...document.querySelectorAll('article img')]"
+        ".filter(el => !el.complete || el.naturalWidth === 0)"
+        ".map(el => el.getAttribute('src'))"
+    )
+    assert not missing, f"images the browser could not load: {missing[:3]}"
+
+
+def test_the_first_tab_reaches_a_way_past_the_furniture(page, site):
+    """Every page opens with the same header, nav and trail. The skip link is
+    only any use if it is the first thing Tab reaches and is visible once it
+    has been: hidden in a way that leaves it in the tab order is a link a
+    keyboard reader lands on and cannot see."""
+    visit(page, site, "/", DESKTOP)
+    page.keyboard.press("Tab")
+    focused = page.locator(":focus")
+    assert focused.get_attribute("class") == "skip-link"
+    assert focused.is_visible()
+    target = focused.get_attribute("href")
+    assert page.locator(target).count() == 1, f"{target} is not on the page"
+
+
 # The footer links to personal profiles; the structure is what this pins.
 EXTERNAL_URL = re.compile(r"(- /url: )https?://\S+")
 

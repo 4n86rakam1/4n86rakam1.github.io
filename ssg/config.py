@@ -45,6 +45,17 @@ PUBLISHED_ASSET_SUFFIXES = frozenset(
     {".gif", ".ipynb", ".jpeg", ".jpg", ".png", ".py", ".svg", ".txt", ".webp"}
 )
 
+# Republished as WebP on the way out. GIF is left out because an animated one
+# would arrive as a still, and SVG because it is already the smaller of the two.
+# Which of WebP's two encodings each image gets is decided per file, in
+# `ssg.images`, from what the file turns out to weigh either way.
+IMAGE_SOURCE_SUFFIXES = frozenset({".jpeg", ".jpg", ".png"})
+IMAGE_TARGET_SUFFIX = ".webp"
+IMAGE_LOSSY_QUALITY = 82
+# A lossy encoding has to be clearly smaller to be worth what it throws away,
+# not smaller by a byte.
+IMAGE_LOSSY_SIZE_RATIO = 2 / 3
+
 INDEX_FILENAME = "index.html"
 SITEMAP_FILENAME = "sitemap.xml"
 NOT_FOUND_FILENAME = "404.html"

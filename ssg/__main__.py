@@ -4,12 +4,18 @@ import sys
 
 from .blog import MissingDateError
 from .build import DuplicateOutputError, MissingFrontPageError, build
+from .images import UnreadableImageError
 
 
 def main():
     try:
         build()
-    except (DuplicateOutputError, MissingDateError, MissingFrontPageError) as error:
+    except (
+        DuplicateOutputError,
+        MissingDateError,
+        MissingFrontPageError,
+        UnreadableImageError,
+    ) as error:
         print(error, file=sys.stderr)
         return 1
     return 0

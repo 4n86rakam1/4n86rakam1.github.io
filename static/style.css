@@ -86,6 +86,32 @@ a {
   text-underline-offset: 0.15em;
 }
 
+/* Drawn in the page's own link colour rather than left to the browser, which
+   picks against assumptions this palette does not share. :focus-visible rather
+   than :focus, so a click does not leave a ring behind the reader did not ask
+   for; the offset keeps the ring off the glyphs it encloses. */
+:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+
+/* Every page opens with the same header, nav and trail, so the first Tab has
+   somewhere better to go. Hidden the same way as anything else that is present
+   to the document and absent to the eye — see .visually-hidden below — which is
+   the only way that leaves it in the tab order, where it has to be to be any
+   use. :focus beats the shared rule on specificity wherever the two sit. */
+.skip-link:focus {
+  width: auto;
+  height: auto;
+  clip-path: none;
+  padding: var(--s2) var(--s3);
+  background: var(--bg);
+  border: 1px solid var(--link);
+  border-radius: var(--radius);
+  font-family: var(--struct);
+  font-size: var(--text-sm);
+}
+
 /* Everything that frames the writing rather than being it: small, monospaced,
    and a step back in colour. */
 .breadcrumbs ol,
@@ -235,7 +261,8 @@ img {
 }
 
 /* Present to anything reading the document's structure, absent to the eye. */
-.visually-hidden {
+.visually-hidden,
+.skip-link {
   position: absolute;
   width: 1px;
   height: 1px;

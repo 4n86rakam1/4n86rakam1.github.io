@@ -10,7 +10,12 @@ from urllib.parse import unquote
 
 import markdown
 
-from .config import INDEX_STEMS, MARKDOWN_SUFFIX
+from .config import (
+    IMAGE_SOURCE_SUFFIXES,
+    IMAGE_TARGET_SUFFIX,
+    INDEX_STEMS,
+    MARKDOWN_SUFFIX,
+)
 from .content import slugify_segment
 
 # Links between writeups name the other page's Markdown file, the way MkDocs
@@ -30,6 +35,22 @@ IMAGE_TAG_PATTERN = re.compile(
     r"""<img\b((?:[^>"']|"[^"]*"|'[^']*')*)>""", re.IGNORECASE
 )
 IMAGE_LOADING_HINTS = (("loading", "lazy"), ("decoding", "async"))
+
+# The build republishes the writeups' images as WebP, so the tag has to name
+# what was written rather than what the Markdown wrote. Spelled the way
+# IMAGE_TAG_PATTERN and the loading hints already spell an attribute — either
+# quote, space around the `=` — because a tag this misses is a tag that still
+# gets its hints and then points at a file the build renamed. `(?<![-\w])`
+# keeps `data-src` out, which nothing converts. The suffix ends the path,
+# before any query or fragment: `shot.png?v=2` keeps its query, and
+# `notes.png.txt` is not an image. The suffixes come from the set the build
+# converts from, so that half cannot drift.
+IMAGE_SOURCE_PATTERN = re.compile(
+    r"(?<![-\w])(?P<name>src)(?P<gap>\s*=\s*)(?P<quote>[\"'])(?P<path>[^\"'?#]*)(?:"
+    + "|".join(re.escape(suffix) for suffix in sorted(IMAGE_SOURCE_SUFFIXES))
+    + r")(?=[?#]|(?P=quote))",
+    re.IGNORECASE,
+)
 
 # md_in_html hands a raw HTML block through untouched unless its tag asks for the
 # contents to be parsed, and the writeups are written without the attribute. Only
@@ -61,6 +82,23 @@ MARKDOWN_EXTENSION_CONFIGS = {
 }
 
 PYGMENTS_STYLE = "default"
+
+# A colour in the generated sheet, so it is read off the sheet rather than off
+# the whole stylesheet: `background-color` ends in the same eight characters.
+HIGHLIGHT_COLOR_PATTERN = re.compile(r"(?<![-\w])color:\s*(#[0-9A-Fa-f]{3,6})")
+# The default style leaves four token colours short of 4.5:1 against the code
+# background this site sets. Three sit a hair under and are darkened by the
+# smallest step that clears it — a shift of well under the difference a trained
+# eye can pick out, so the highlighting reads as it did.
+#
+# The fourth is left alone. Text.Whitespace, at 1.77:1, colours the whitespace
+# characters themselves rather than anything a reader has to make out, and
+# taking it to 4.5:1 would run visible grey marks through every code block.
+PYGMENTS_COLOR_OVERRIDES = {
+    "#3D7B7B": "#3d7a7a",
+    "#A2F": "#a822fc",
+    "#767600": "#757500",
+}
 
 
 def make_renderer():
@@ -113,6 +151,39 @@ def add_loading_hints(html):
     return IMAGE_TAG_PATTERN.sub(_add_loading_hints, html)
 
 
+def _published_image_source(match):
+    path = match.group("path")
+    # An image on another host was not ours to convert, and neither is a
+    # site-absolute one: the writeups name their images by relative path, while
+    # `/static/` holds the files the build copies verbatim. Renaming
+    # og-image.png there would leave the share card pointing at nothing.
+    if EXTERNAL_LINK_PATTERN.match(path) or path.startswith("/"):
+        return match.group(0)
+    return (
+        f"{match.group('name')}{match.group('gap')}{match.group('quote')}"
+        f"{path}{IMAGE_TARGET_SUFFIX}"
+    )
+
+
+def _point_image_at_published_file(match):
+    return f"<img{IMAGE_SOURCE_PATTERN.sub(_published_image_source, match.group(1))}>"
+
+
+def point_images_at_published_files(html):
+    """Name the WebP the build wrote, not the file the Markdown named."""
+    return IMAGE_TAG_PATTERN.sub(_point_image_at_published_file, html)
+
+
+def raise_highlight_contrast(css):
+    """Lift the highlighting colours that fall short of the contrast ratio."""
+    return HIGHLIGHT_COLOR_PATTERN.sub(
+        lambda match: (
+            "color: " + PYGMENTS_COLOR_OVERRIDES.get(match.group(1), match.group(1))
+        ),
+        css,
+    )
+
+
 def mark_details_contents_as_markdown(text):
     """Ask the parser to read what is inside a <details> block as Markdown."""
     inside_fence = False
@@ -130,4 +201,6 @@ def render(renderer, text):
     """The renderer is reset so one document's state cannot leak into the next."""
     renderer.reset()
     html = renderer.convert(mark_details_contents_as_markdown(text))
-    return add_loading_hints(rewrite_source_links(html))
+    return add_loading_hints(
+        point_images_at_published_files(rewrite_source_links(html))
+    )

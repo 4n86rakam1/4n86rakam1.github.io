@@ -1,10 +1,19 @@
+import re
+
+import pytest
+from conftest import CODE_BACKGROUND, MINIMUM_CONTRAST, contrast_ratio
+
 from ssg.render import (
     add_loading_hints,
     make_renderer,
     mark_details_contents_as_markdown,
+    point_images_at_published_files,
+    raise_highlight_contrast,
     render,
     rewrite_source_links,
 )
+
+COLOUR_PATTERN = re.compile(r"(?<![-\w])color:\s*(#[0-9A-Fa-f]{3,6})")
 
 
 def test_a_sibling_index_becomes_its_directory():
@@ -163,8 +172,10 @@ def test_an_image_inside_a_details_block_reaches_the_page_as_an_image():
         make_renderer(),
         "<details><summary>s</summary>\n\n![w1.png](img/w1.png)\n\n</details>\n",
     )
+    # The alt text is the author's words and stays as written; only the address
+    # follows the file the build published.
     assert (
-        '<img loading="lazy" decoding="async" alt="w1.png" src="img/w1.png" />' in html
+        '<img loading="lazy" decoding="async" alt="w1.png" src="img/w1.webp" />' in html
     )
     assert "![w1.png]" not in html
 
@@ -185,3 +196,98 @@ def test_code_inside_a_details_block_is_still_code():
     )
     assert "<pre" in html
     assert "```" not in html
+
+
+def test_an_image_points_at_the_file_the_build_published():
+    assert (
+        point_images_at_published_files('<img alt="a" src="img/shot.png">')
+        == '<img alt="a" src="img/shot.webp">'
+    )
+
+
+def test_the_suffix_is_matched_however_it_is_spelled():
+    assert 'src="a.webp"' in point_images_at_published_files('<img src="a.PNG">')
+    assert 'src="b.webp"' in point_images_at_published_files('<img src="b.JPEG">')
+
+
+def test_a_query_or_fragment_survives_the_rewrite():
+    # The suffix ends the path, not the address: `shot.png?v=2` is still a PNG.
+    assert (
+        point_images_at_published_files('<img src="shot.png?v=2">')
+        == '<img src="shot.webp?v=2">'
+    )
+
+
+def test_an_image_on_another_host_is_left_alone():
+    # Nothing here converted it, so nothing here may rename it.
+    tag = '<img src="https://example.com/a.png">'
+    assert point_images_at_published_files(tag) == tag
+
+
+def test_a_file_that_only_looks_like_an_image_is_left_alone():
+    tag = '<img src="notes.png.txt">'
+    assert point_images_at_published_files(tag) == tag
+
+
+def test_a_format_that_is_published_as_it_stands_is_left_alone():
+    for tag in ('<img src="a.gif">', '<img src="a.svg">', '<img src="a.webp">'):
+        assert point_images_at_published_files(tag) == tag
+
+
+def test_an_alt_text_naming_a_png_is_not_an_address():
+    html = point_images_at_published_files('<img alt="w1.png" src="img/w1.png">')
+    assert 'alt="w1.png"' in html
+    assert 'src="img/w1.webp"' in html
+
+
+def test_the_highlight_colours_short_of_the_minimum_are_lifted():
+    css = ".c { color: #3D7B7B } .nd { color: #A2F } .nl { color: #767600 }"
+    for colour in COLOUR_PATTERN.findall(raise_highlight_contrast(css)):
+        ratio = contrast_ratio(colour, CODE_BACKGROUND)
+        assert ratio >= MINIMUM_CONTRAST, f"{colour} is {ratio:.2f}:1"
+
+
+def test_the_whitespace_marker_is_left_where_it_is():
+    """Text.Whitespace draws the whitespace characters themselves. Lifting it to
+    the minimum would run visible grey marks through every code block."""
+    css = ".w { color: #BBB }"
+    assert raise_highlight_contrast(css) == css
+
+
+def test_a_background_colour_is_not_mistaken_for_a_foreground_one():
+    # `background-color` ends in the same eight characters as `color`.
+    css = ".hll { background-color: #3D7B7B }"
+    assert raise_highlight_contrast(css) == css
+
+
+@pytest.mark.parametrize(
+    "tag,expected",
+    [
+        ("<img src='a.png'>", "<img src='a.webp'>"),
+        ('<img src = "a.png">', '<img src = "a.webp">'),
+        ('<img SRC="a.png">', '<img SRC="a.webp">'),
+    ],
+)
+def test_an_attribute_is_matched_however_it_is_written(tag, expected):
+    """The loading hints already accept every one of these spellings. A tag this
+    missed would be deferred and then point at a file the build renamed."""
+    assert point_images_at_published_files(tag) == expected
+
+
+def test_a_site_absolute_address_is_left_alone():
+    """The writeups name their images by relative path. `/static/` is the build's
+    own directory, copied verbatim, and og-image.png there is what the share
+    card points at."""
+    tag = '<img src="/static/og-image.png">'
+    assert point_images_at_published_files(tag) == tag
+
+
+def test_an_attribute_that_only_ends_in_src_is_left_alone():
+    # Nothing converts what `data-src` names, so renaming it moves the breakage.
+    tag = '<img data-src="a.png">'
+    assert point_images_at_published_files(tag) == tag
+
+
+def test_the_closing_quote_has_to_match_the_opening_one():
+    tag = "<img src=\"a.png'>"
+    assert point_images_at_published_files(tag) == tag
