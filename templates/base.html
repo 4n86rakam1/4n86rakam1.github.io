@@ -80,10 +80,11 @@
 
     {# Two groups rather than one row: the site's own pages and the links that
     leave it are different things, and undivided they read as one list. The two
-    on the right wear no arrow, unlike an outward link in the writing: the
-    attribute the marker selects on is written by ssg.render over body content,
-    and the furniture is deliberately left plain. Which side of the footer a
-    link is on is what says where it goes here. #}
+    on the right carry what ssg.render writes onto an outward link in the
+    writing, so a profile leaves the page the reader was on where it was — and
+    so the arrow the stylesheet hangs on that attribute warns here too. A footer
+    that opened a tab without saying so would be the one link on the page that
+    does. #}
     <footer class="site-footer">
       <div class="footer-group">
         {% for label, url in footer_pages %}
@@ -92,7 +93,7 @@
       </div>
       <div class="footer-group">
         {% for label, url in footer_profiles %}
-        <a href="{{ url }}">{{ label }}</a>
+        <a href="{{ url }}" target="_blank" rel="noopener">{{ label }}</a>
         {% endfor %}
       </div>
     </footer>

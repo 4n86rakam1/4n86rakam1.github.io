@@ -513,6 +513,51 @@ def test_every_link_in_the_furniture_reaches_a_published_page():
     assert not missing, f"the furniture links to pages that were never built: {missing}"
 
 
+# Written out rather than imported from the template being checked: a pattern
+# built from the template would match whatever the template happens to say.
+FOOTER_PATTERN = re.compile(r"<footer\b[^>]*>(.*?)</footer>", re.DOTALL | re.IGNORECASE)
+ANCHOR_PATTERN = re.compile(r"<a\b[^>]*>")
+
+
+def test_a_footer_link_that_leaves_the_site_opens_in_a_new_tab(isolated_site):
+    """A profile is a detour rather than a destination, so the page the reader
+    was on stays where it was. `noopener` closes the handle the new tab is
+    otherwise given on the one that opened it."""
+    content_dir, output_dir = isolated_site
+    (content_dir / "index.md").write_text("---\ntitle: Home\n---\n\nBody.\n")
+    build_module.build()
+    footer = FOOTER_PATTERN.search((output_dir / "index.html").read_text())
+    assert footer, "the built page has no footer"
+    anchors = ANCHOR_PATTERN.findall(footer.group(1))
+    outward = [anchor for anchor in anchors if 'href="http' in anchor]
+    assert outward, "the footer shows no link that leaves the site"
+    plain = [
+        anchor
+        for anchor in outward
+        if 'target="_blank"' not in anchor or 'rel="noopener"' not in anchor
+    ]
+    assert not plain, f"a footer link leaves the site in the same tab: {plain}"
+
+
+def test_a_footer_link_to_this_site_stays_in_the_tab(isolated_site):
+    """The other half of the rule, and what says the first one is about where a
+    link goes rather than about the footer: a new tab for a page of this site
+    would strand the reader's back button on the page they came from."""
+    content_dir, output_dir = isolated_site
+    (content_dir / "index.md").write_text("---\ntitle: Home\n---\n\nBody.\n")
+    build_module.build()
+    footer = FOOTER_PATTERN.search((output_dir / "index.html").read_text())
+    assert footer, "the built page has no footer"
+    inward = [
+        anchor
+        for anchor in ANCHOR_PATTERN.findall(footer.group(1))
+        if 'href="/' in anchor
+    ]
+    assert inward, "the footer shows no link to a page of this site"
+    detached = [anchor for anchor in inward if "_blank" in anchor]
+    assert not detached, f"a footer link to this site opens a new tab: {detached}"
+
+
 def test_an_old_url_is_not_counted_as_a_page_view(isolated_site):
     """A receiver is a doorway rather than a page. Counting it would record two
     views for one reader, since the page it sends them to counts itself."""
